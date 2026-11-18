@@ -7,7 +7,9 @@ the format: the form on the site writes the file for you.
 
 The `proposer` control sits at the bottom right of every page. It asks for the
 forme fautive, the forme correcte (optional), a source, and the text of the
-fiche, and shows the fiche as it will be published.
+fiche, and shows the fiche as it will be published. Leaving the forme correcte
+empty turns the source field into a justification field: say why there is
+nothing to say instead, and that sentence is what the fiche displays.
 
 Submitting opens GitHub's new-file form, already filled with:
 

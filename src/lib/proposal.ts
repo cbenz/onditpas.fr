@@ -92,17 +92,22 @@ export function assertValid(input: ProposalInput): void {
   if (!formeFautive) throw new InvalidProposal('formeFautive', 'La forme fautive est obligatoire.');
   if (!body) throw new InvalidProposal('body', 'Le texte de la fiche est obligatoire.');
 
+  // A source is only required alongside a forme correcte, but a source that is
+  // given is always a URL, as the schema says.
+  for (const source of sources) {
+    try {
+      new URL(source);
+    } catch {
+      throw new InvalidProposal('sources', `Cette source n’est pas une URL : ${source}`);
+    }
+  }
+
   if (formeCorrecte) {
     if (sources.length === 0) {
       throw new InvalidProposal(
         'sources',
         'Une source est obligatoire quand il y a une forme correcte.',
       );
-    }
-    for (const source of sources) {
-      if (!URL.canParse(source)) {
-        throw new InvalidProposal('sources', `Cette source n’est pas une URL : ${source}`);
-      }
     }
     return;
   }

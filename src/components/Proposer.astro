@@ -22,7 +22,13 @@ const { formeFautive = '' } = Astro.props;
 ---
 
 <div class="proposer" data-proposer-root>
-  <a class="proposer-trigger" href={NEW_FILE_BASE} data-proposer rel="noopener noreferrer">
+  <a
+    class="proposer-trigger"
+    href={NEW_FILE_BASE}
+    data-proposer
+    aria-haspopup="dialog"
+    rel="noopener noreferrer"
+  >
     proposer
   </a>
 
@@ -59,7 +65,7 @@ const { formeFautive = '' } = Astro.props;
       <div class="field">
         <label for="forme-correcte">Forme correcte (facultatif)</label>
         <p class="hint" id="forme-correcte-hint">
-          Ce qu’il faut dire à la place. Laissez vide s’il n’y a rien à dire à la place.
+          Ce qu’il faut dire à la place. Laissez vide s’il n’y a rien à dire.
         </p>
         <input
           id="forme-correcte"
@@ -197,7 +203,7 @@ const { formeFautive = '' } = Astro.props;
         set('forme-correcte', correcte);
         set('justification', correcte ? '' : why);
         set('texte', text);
-        set('source', correcte && url ? `Source : ${hostOf(url)}` : '');
+        set('source', correcte && url ? `Source\u00a0: ${hostOf(url)}` : '');
 
         const noCorrection = previewOf('corr-none');
         if (noCorrection) noCorrection.hidden = Boolean(correcte);

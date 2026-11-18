@@ -141,6 +141,20 @@ test('a source that is not a URL is refused, as the schema would', () => {
   );
 });
 
+test('the schema’s URL rule holds even when there is no correct form', () => {
+  // `sources` is optional there, but a source that is given is still a URL.
+  assert.throws(
+    () =>
+      buildProposal({
+        formeFautive: 'wesh',
+        justification: 'Il n’y a rien à dire à la place.',
+        sources: ['voir le dictionnaire'],
+        body: 'Wesh n’est pas du français.',
+      }),
+    /URL/i,
+  );
+});
+
 test('a rejection names the field to focus in the form', () => {
   const fieldOf = (input: Parameters<typeof buildProposal>[0]) => {
     try {
