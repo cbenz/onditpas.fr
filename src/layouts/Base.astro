@@ -1,4 +1,5 @@
 ---
+import Proposer from '../components/Proposer.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -9,6 +10,10 @@ interface Props {
   wordmarkHref?: string | null;
   /** Whether the header links to the mur de mots. */
   murLink?: boolean;
+  /** Whether the contribution control is shown. On by default, on every page. */
+  proposer?: boolean;
+  /** Pre-fills the forme fautive, e.g. with the word of a generated fiche. */
+  proposerPrefill?: string;
   /**
    * Keep the document out of search engines. Generated fiches and utility
    * routes are one document serving infinite URLs; they must not be indexed.
@@ -28,6 +33,8 @@ const {
   murLink = true,
   noindex = false,
   canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://onditpas.fr').href,
+  proposer = true,
+  proposerPrefill,
 } = Astro.props;
 ---
 
@@ -64,5 +71,6 @@ const {
         <slot />
       </main>
     </div>
+    {proposer && <Proposer formeFautive={proposerPrefill} />}
   </body>
 </html>
