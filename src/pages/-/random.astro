@@ -1,0 +1,68 @@
+---
+/**
+ * `/-/random`: draw one authored fiche and send the visitor there.
+ *
+ * The draw cannot happen at build time — a static site has no request to hang
+ * it on, and the page must land somewhere else on the next visit. So the slugs
+ * are embedded once at build time, and the inline script picks one on every
+ * load, then replaces the location so that Back does not bounce through here.
+ *
+ * Without JavaScript the page is not broken: it says what it is and links to the
+ * mur. It is `noindex, nofollow` and claims no canonical: it points at no fiche
+ * of its own, and `/-/` is reserved so the host's catch-all never sees it.
+ */
+import { getCollection } from 'astro:content';
+
+import Base from '../../layouts/Base.astro';
+import { slugify } from '../../lib/slug';
+
+const fiches = await getCollection('fiches');
+const slugs = fiches.map((fiche) => slugify(fiche.data.forme_fautive));
+
+const pageTitle = 'Une fiche au hasard · onditpas.fr';
+const description =
+  'Une fiche d’onditpas.fr tirée au hasard. Sans JavaScript, le mur de mots mène à toutes les fiches.';
+---
+
+<Base title={pageTitle} description={description} noindex canonical={null}>
+  <article class="random">
+    <h1 class="headline display">au hasard</h1>
+
+    <div class="row">
+      <div class="corr">
+        <span class="corr-label">Tirage</span>
+        <b class="display">une fiche au hasard</b>
+      </div>
+
+      <div class="side">
+        <div class="def">
+          <p>
+            Cette page tire une fiche au hasard parmi celles qui sont écrites, puis vous
+            y emmène. Revenez quand vous voulez&nbsp;: le tirage recommence à chaque
+            visite.
+          </p>
+          <p class="no-js">
+            Sans JavaScript, elle ne peut pas tirer. Voici
+            <a href="/">le mur de mots</a>&nbsp;: toutes les fiches y sont, à portée de
+            clic.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script define:vars={{ slugs }}>
+      const slug = slugs[Math.floor(Math.random() * slugs.length)];
+      location.replace(`/${slug}`);
+    </script>
+  </article>
+</Base>
+
+<style>
+  .no-js {
+    margin-top: 1.2rem;
+  }
+  .no-js a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+</style>
