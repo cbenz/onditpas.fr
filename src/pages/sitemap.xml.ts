@@ -9,10 +9,12 @@
  *
  * URL shape: `build.format` is `directory`, so every page is one document per
  * directory and `Base.astro`'s canonical tag carries the trailing slash. The
- * sitemap repeats the canonical byte for byte (see `trailingSlash: 'ignore'`
- * in `astro.config.mjs`: both forms resolve). `lastmod` is omitted: the content
- * collection exposes no publication date, and a build timestamp would claim the
- * fiche changed every time the site is rebuilt.
+ * sitemap repeats the canonical byte for byte. `astro.config.mjs` leaves
+ * `trailingSlash` at its default, so the build emits directory URLs; the host
+ * answers the unslashed form too (`cleanUrls: true` in `vercel.json`), so the
+ * sitemap names the one form the canonical tag names. `lastmod` is omitted: the
+ * content collection exposes no publication date, and a build timestamp would
+ * claim the fiche changed every time the site is rebuilt.
  */
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';

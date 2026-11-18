@@ -8,9 +8,15 @@
  *
  * Pure: no Astro, no I/O. Tests call it directly (seam S2).
  */
+import { NBSP } from './typography.ts';
 
-/** French typography puts a non-breaking space before an exclamation mark. */
-const NBSP = '\u00a0';
+/** The tone a fiche is written in: the page as written, or the page shouting. */
+export type Registre = 'deadpan' | 'bordel';
+
+/** The label above the correction line, in the registre the page is in. */
+export function registreLabel(registre: Registre): string {
+  return registre === 'bordel' ? 'Bordel' : 'On dit';
+}
 
 export interface BordelTitleInput {
   /** The form people wrongly write, as authored. */

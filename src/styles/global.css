@@ -48,7 +48,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink);
   outline-offset: 3px;
 }
 
@@ -87,8 +87,8 @@ main {
 }
 
 .top a:hover {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
 /* ── fiche, variant A · Dictionnaire ────────────────────────────────── */

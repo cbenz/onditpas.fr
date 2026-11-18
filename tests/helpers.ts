@@ -84,6 +84,23 @@ export function hrefs(html: string): string[] {
   return found;
 }
 
+/**
+ * The source of a built script and of every module it imports, transitively.
+ *
+ * Astro inlines a page script only when its bundle imports nothing; otherwise
+ * it lands in `/_astro/`, and a module shared by two scripts lands in a chunk
+ * of its own. A test that reads what the page runs has to follow those imports.
+ */
+export function scriptSource(src: string, seen = new Set<string>()): string {
+  if (seen.has(src)) return '';
+  seen.add(src);
+  const code = readPage(src);
+  const imports = [...code.matchAll(/\bfrom\s*"(\.\/[^"]+)"/g)].map((match) =>
+    new URL(match[1] ?? '', `https://onditpas.fr${src}`).pathname,
+  );
+  return [code, ...imports.map((dependency) => scriptSource(dependency, seen))].join('\n');
+}
+
 /** Content of the `<title>` element, trimmed. */
 export function title(html: string): string {
   const match = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);

@@ -9,13 +9,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import {
-  buildProposal,
-  buildFiche,
-  editUrl,
-  InvalidProposal,
-  NEW_FILE_BASE,
-} from '../src/lib/proposal.ts';
+import { NEW_FILE_BASE } from '../src/lib/github.ts';
+import { buildFiche, buildProposal, InvalidProposal } from '../src/lib/proposal.ts';
 
 const NEW_FILE = 'https://github.com/cbenz/onditpas.fr/new/main/src/content/fiches';
 
@@ -176,11 +171,4 @@ test('a rejection names the field to focus in the form', () => {
 test('the new-file form is this repository’s fiches directory, on main', () => {
   assert.equal(NEW_FILE_BASE, NEW_FILE);
   assert.ok(buildProposal(CORRECT).url.startsWith(`${NEW_FILE}?`), 'the proposal opens there');
-});
-
-test('the edit link points at the file of the fiche on GitHub', () => {
-  assert.equal(
-    editUrl('publique'),
-    'https://github.com/cbenz/onditpas.fr/edit/main/src/content/fiches/publique.md',
-  );
 });

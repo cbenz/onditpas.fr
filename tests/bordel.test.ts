@@ -16,6 +16,7 @@ import {
   DIST,
   type AuthoredFiche,
   fiches,
+  hrefs,
   htmlText,
   pageExists,
   readPage,
@@ -126,6 +127,25 @@ for (const fiche of authored) {
   });
 }
 
+test('every authored fiche offers its shouting version, discreetly', () => {
+  // User story 8: choose how hard to send it. The link is a quiet line in the
+  // footer, not a second call to action.
+  for (const fiche of authored) {
+    const slug = slugify(fiche.forme_fautive);
+    const html = readPage(deadpanPath(fiche));
+    const href = `/${slug}/bordel`;
+    assert.ok(hrefs(html).includes(href), `${fiche.file} links to ${href}`);
+    assert.match(html, /class="[^"]*\bplus-fort\b/, `${fiche.file} names the link`);
+    assert.ok(pageExists(`${href}/`), `${href} exists in the build`);
+    assert.ok(
+      htmlText(html).includes('le dire plus fort'),
+      `${fiche.file} says what the link does, in French`,
+    );
+    // The shouting page is already the shouting page: it does not link to itself.
+    assert.ok(!hrefs(readPage(shoutPath(fiche))).includes(href), `${href}/bordel does not self-link`);
+  }
+});
+
 /* ── the accent colour ──────────────────────────────────────────────── */
 
 /** Every stylesheet a page carries: inlined `<style>` and linked `.css` files. */
@@ -149,9 +169,6 @@ function accentRules(css: string): Array<{ selector: string; body: string }> {
     .filter(({ body }) => ACCENT.test(body) && !TOKEN.test(body));
 }
 
-/** Rules that only colour an interaction state, on every page alike. */
-const INTERACTION = /:focus-visible|:hover|:focus\b/;
-
 for (const fiche of authored) {
   const shouting = shoutPath(fiche);
   const deadpan = deadpanPath(fiche);
@@ -172,7 +189,7 @@ for (const fiche of authored) {
       const css = stylesheets(readPage(path));
       for (const { selector } of accentRules(css)) {
         assert.ok(
-          selector.includes('.is-bordel') || INTERACTION.test(selector),
+          selector.includes('.is-bordel'),
           `${path}: ${selector} paints with the accent outside the shouting registre`,
         );
       }

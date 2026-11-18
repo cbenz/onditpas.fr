@@ -22,8 +22,6 @@ const rows = Math.ceil(words.length / 2);
 ---
 
 <section class="mur">
-  <p class="mur-count">{words.length} fiche{words.length > 1 ? 's' : ''}</p>
-
   <ul class="mur-list" style={`--mur-rows:${rows}`}>
     {
       words.map((word) => (
@@ -43,15 +41,6 @@ const rows = Math.ceil(words.length / 2);
     flex-direction: column;
     flex: 1;
     min-width: 0;
-  }
-
-  .mur-count {
-    margin: 0.55rem 0 0;
-    text-align: right;
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--muted);
   }
 
   .mur-list {
@@ -85,8 +74,11 @@ const rows = Math.ceil(words.length / 2);
     overflow-wrap: anywhere;
   }
 
+  /* A hover mark without the accent: red belongs to the shouting registre. */
   .mur-list a:hover .w {
-    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.08em;
   }
 
   @media (max-width: 700px) {

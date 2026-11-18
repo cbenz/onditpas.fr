@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { bordelTitle } from '../src/lib/registre.ts';
+import { bordelTitle, registreLabel } from '../src/lib/registre.ts';
 
 /** A non-breaking space, as French typography requires before `!`. */
 const NBSP = '\u00a0';
@@ -81,6 +81,11 @@ for (const { name, input, expected } of CASES) {
     assert.equal(bordelTitle(input), expected);
   });
 }
+
+test('registreLabel: the correction line is labelled in the registre of the page', () => {
+  assert.equal(registreLabel('deadpan'), 'On dit');
+  assert.equal(registreLabel('bordel'), 'Bordel');
+});
 
 test('bordelTitle: French typography, no double spaces', () => {
   for (const { input } of CASES) {

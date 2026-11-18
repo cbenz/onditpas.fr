@@ -11,21 +11,9 @@
  * source. On top of the schema, the deadpan text is required — a fiche with no
  * text is not a fiche.
  */
+import { NEW_FILE_BASE } from './github.ts';
 import { slugify } from './slug.ts';
-
-/** The repository the proposal opens a pull request against. */
-export const REPO = 'cbenz/onditpas.fr';
-/** Where the fiches live inside it. */
-export const FICHES_PATH = 'src/content/fiches';
-/** The branch proposals target. */
-export const BRANCH = 'main';
-
-/**
- * GitHub's new-file form for this directory; also the no-JavaScript fallback.
- * Written out in full rather than composed, so that the built page carries the
- * destination as one readable string.
- */
-export const NEW_FILE_BASE = 'https://github.com/cbenz/onditpas.fr/new/main/src/content/fiches';
+import { NBSP } from './typography.ts';
 
 export interface ProposalInput {
   /** The form people wrongly write; the slug and the file name derive from it. */
@@ -71,6 +59,11 @@ function optional(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+/** The sources a proposal carries, trimmed, with the empty lines dropped. */
+function sourcesOf(input: ProposalInput): string[] {
+  return (input.sources ?? []).map((source) => source.trim()).filter(Boolean);
+}
+
 /** A YAML scalar, double-quoted so that a colon or an apostrophe cannot break it. */
 function quote(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
@@ -86,7 +79,7 @@ export function assertValid(input: ProposalInput): void {
   const formeFautive = optional(input.formeFautive);
   const formeCorrecte = optional(input.formeCorrecte);
   const justification = optional(input.justification);
-  const sources = (input.sources ?? []).map((source) => source.trim()).filter(Boolean);
+  const sources = sourcesOf(input);
   const body = optional(input.body);
 
   if (!formeFautive) throw new InvalidProposal('formeFautive', 'La forme fautive est obligatoire.');
@@ -98,7 +91,7 @@ export function assertValid(input: ProposalInput): void {
     try {
       new URL(source);
     } catch {
-      throw new InvalidProposal('sources', `Cette source n’est pas une URL : ${source}`);
+      throw new InvalidProposal('sources', `Cette source n’est pas une URL${NBSP}: ${source}`);
     }
   }
 
@@ -123,7 +116,7 @@ export function buildFiche(input: ProposalInput): string {
 
   const formeCorrecte = optional(input.formeCorrecte);
   const justification = optional(input.justification);
-  const sources = (input.sources ?? []).map((source) => source.trim()).filter(Boolean);
+  const sources = sourcesOf(input);
 
   const frontmatter = [`forme_fautive: ${quote(optional(input.formeFautive) ?? '')}`];
   if (formeCorrecte) frontmatter.push(`forme_correcte: ${quote(formeCorrecte)}`);
@@ -133,11 +126,6 @@ export function buildFiche(input: ProposalInput): string {
   }
 
   return `---\n${frontmatter.join('\n')}\n---\n\n${optional(input.body) ?? ''}\n`;
-}
-
-/** GitHub's edit form for the file of one fiche. */
-export function editUrl(slug: string): string {
-  return `https://github.com/${REPO}/edit/${BRANCH}/${FICHES_PATH}/${slug}.md`;
 }
 
 /** The whole proposal: the file to create and the form that creates it. */

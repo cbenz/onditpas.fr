@@ -70,10 +70,11 @@ test('each entry links to the page of its fiche', () => {
   }
 });
 
-test('the wall announces how many fiches it holds', () => {
-  const count = fiches().length;
-  const label = count > 1 ? `${count} fiches` : `${count} fiche`;
-  assert.ok(htmlText(html).includes(label), `the count reads « ${label} »`);
+test('the wall counts nothing: it is a wall of words, not a dashboard', () => {
+  // Issue #5 asked for the words and nothing else; the spec keeps the mur free
+  // of aggregation, so no fiche count is displayed.
+  assert.ok(!/\b\d+\s+fiches?\b/i.test(htmlText(html)), 'no fiche count is displayed');
+  assert.ok(!/class="[^"]*\bmur-count\b/.test(html), 'the count element is gone');
 });
 
 test('the wall flows in two columns, filled column by column', () => {

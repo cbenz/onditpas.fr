@@ -23,8 +23,9 @@ produces.
   and `trailingSlash` is left unset in `vercel.json` on purpose: the host then
   answers both `/publique` and `/publique/` without a redirect between them, so a
   shared link does not spend a hop before reaching the fiche.
-- Ticket #7 adds the catch-all rewrite to the same file, as a `rewrites` entry.
-  Nothing in the current file stands in its way.
+- `vercel.json` also carries the catch-all rewrite (see below): an unknown path
+  answers with the generated-fiche document, not a 404. Nothing else in the
+  host configuration stands between a mistyped URL and that document.
 
 ## What deploys what
 

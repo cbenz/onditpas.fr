@@ -35,6 +35,14 @@ test('a forme correcte points at the fiche about the forme fautive', () => {
   assert.equal(redirects['/public'], '/publique');
 });
 
+test('the spec’s own URLs reach the fiches they name', () => {
+  // Both are written in the spec as the *fautive* form, and their derivation
+  // removes the hyphens: a link copied from the spec must not fall through to
+  // the generated fiche.
+  assert.equal(redirects['/force-a-toi'], '/forceatoi');
+  assert.equal(redirects['/en-vrai'], '/envrai');
+});
+
 test('obvious variants of an existing fiche point at that fiche', () => {
   // `publique` is the only authored fiche today; every variant of it must
   // reach /publique and none of them may be a second page of its own.

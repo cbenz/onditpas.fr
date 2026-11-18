@@ -17,4 +17,8 @@ export const redirects: Readonly<Record<string, string>> = {
   // Typographic variant of `publique`: the word typed at the start of a
   // sentence, or pasted from one, keeps its capital.
   '/Publique': '/publique',
+  // The spec's own URLs. `force à toi` and `en vrai` derive to `/forceatoi`
+  // and `/envrai`; the hyphenated form is the one people paste from the spec.
+  '/force-a-toi': '/forceatoi',
+  '/en-vrai': '/envrai',
 };
