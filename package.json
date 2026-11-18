@@ -1,0 +1,18 @@
+{
+  "name": "onditpas.fr",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "test": "astro build && node --test"
+  },
+  "dependencies": {
+    "astro": "^5.18.2"
+  }
+}
