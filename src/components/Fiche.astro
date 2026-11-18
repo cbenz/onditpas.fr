@@ -6,7 +6,9 @@
  * it in, so that the deadpan page and the shouting page (ticket #6) share the
  * same component. The definition arrives through the default slot.
  */
-export type Registre = 'deadpan' | 'bordel';
+import { hostOf } from '../lib/host';
+import { registreLabel, type Registre } from '../lib/registre';
+import { NBSP } from '../lib/typography';
 
 export interface Props {
   /** The form people wrongly write, set as the headline. */
@@ -25,6 +27,11 @@ export interface Props {
   correction?: string;
   /** GitHub's edit form for this fiche's own file, built by the page. */
   editUrl?: string;
+  /**
+   * The shouting version of the same fiche, offered as a way to send it
+   * harder. Absent on the shouting page, which is already there.
+   */
+  shoutHref?: string;
 }
 
 const {
@@ -35,19 +42,11 @@ const {
   registre = 'deadpan',
   correction,
   editUrl,
+  shoutHref,
 } = Astro.props;
 
-const label = registre === 'bordel' ? 'Bordel' : 'On dit';
+const label = registreLabel(registre);
 const correctionText = correction ?? formeCorrecte;
-
-/** Short, readable label for a source: its host keeps the line tidy. */
-function sourceLabel(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
-}
 ---
 
 <article class:list={['fiche', { 'is-bordel': registre === 'bordel' }]}>
@@ -60,7 +59,7 @@ function sourceLabel(url: string): string {
         correctionText ? (
           <b class="display">{correctionText}</b>
         ) : (
-          <span class="corr-none">Rien : il n’y a pas d’autre façon de le dire.</span>
+          <span class="corr-none">Rien{NBSP}: il n’y a pas d’autre façon de le dire.</span>
         )
       }
       {justification && <p class="why">{justification}</p>}
@@ -75,13 +74,20 @@ function sourceLabel(url: string): string {
     {
       sources.length > 0 && (
         <p class="src">
-          Source{sources.length > 1 ? 's' : ''} :{' '}
+          Source{sources.length > 1 ? 's' : ''}{NBSP}:{' '}
           {sources.map((url) => (
             <a href={url} rel="noopener noreferrer" title={url}>
-              {sourceLabel(url)}
+              {hostOf(url)}
             </a>
           ))}
         </p>
+      )
+    }
+    {
+      shoutHref && (
+        <a class="plus-fort" href={shoutHref}>
+          le dire plus fort
+        </a>
       )
     }
     {
@@ -93,3 +99,22 @@ function sourceLabel(url: string): string {
     }
   </footer>
 </article>
+
+<style is:global>
+  /* The two footer links: the same quiet rule, next to the fiche they act on. */
+  .plus-fort,
+  .modifier {
+    display: inline-block;
+    margin-top: 0.9rem;
+    margin-right: 1.1rem;
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .plus-fort:hover,
+  .modifier:hover {
+    color: var(--ink);
+  }
+</style>

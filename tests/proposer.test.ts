@@ -11,9 +11,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
+import { BRANCH, FICHES_PATH, NEW_FILE_BASE, REPOSITORY } from '../src/lib/github.ts';
 import { slugify } from '../src/lib/slug.ts';
-import { NEW_FILE_BASE, editUrl } from '../src/lib/proposal.ts';
-import { fiches, hrefs, readPage, ROOT, title } from './helpers.ts';
+import { fiches, hrefs, readPage, ROOT, scriptSource, title } from './helpers.ts';
 
 /** The mur, plus the page of every authored fiche. */
 const PAGES: ReadonlyArray<readonly [label: string, html: string]> = [
@@ -27,7 +27,7 @@ function scripts(html: string): string {
     (match) => match[1] ?? '',
   );
   const linked = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map((match) =>
-    readPage(match[1] ?? ''),
+    scriptSource(match[1] ?? ''),
   );
   return [...inline, ...linked].join('\n');
 }
@@ -74,10 +74,11 @@ test('the page knows the URL of the pre-filled new-file form', () => {
   for (const [label, html] of PAGES) {
     const source = scripts(html);
     assert.match(source, /quick_pull/, `${label} asks GitHub for the pull request flow`);
-    assert.ok(
-      source.includes('github.com/cbenz/onditpas.fr/new/main/src/content/fiches'),
-      `${label} builds the URL of this repository’s fiches directory`,
-    );
+    // The module composes the URL from its parts; the whole string is asserted
+    // in tests/github.test.ts and on the executed link.
+    for (const part of ['github.com/cbenz/onditpas.fr', 'content/fiches']) {
+      assert.ok(source.includes(part), `${label} builds the URL of this repository’s ${part}`);
+    }
   }
 });
 
@@ -91,24 +92,47 @@ test('the dialog previews the fiche in the visual grammar of the fiche page', ()
   }
 });
 
-test('each fiche links to the GitHub edit form for its own file', () => {
+/**
+ * The repository path an edit href points at, e.g. `src/content/fiches/wesh.md`.
+ *
+ * The path is read out of the built link, then resolved against the repository
+ * as it is checked out; a link that names no file fails the test below.
+ */
+function editedPath(href: string): string {
+  const prefix = `${REPOSITORY}/edit/${BRANCH}/`;
+  assert.ok(href.startsWith(prefix), `${href} is GitHub’s edit form for this repository`);
+  return decodeURIComponent(href.slice(prefix.length));
+}
+
+/** The edit link a page carries, once. */
+function editLink(html: string, label: string): string {
+  const edits = hrefs(html).filter((href) => href.startsWith(`${REPOSITORY}/edit/`));
+  assert.equal(edits.length, 1, `${label} carries exactly one edit link`);
+  return edits[0] ?? '';
+}
+
+test('each fiche links to the GitHub edit form of a file that exists', () => {
+  // The slug is not the file name: `au-jour-daujourdhui.md` answers
+  // /aujourdaujourdhui. So the assertion is against the real files on disk.
   for (const fiche of fiches()) {
     const html = readPage(`/${slugify(fiche.forme_fautive)}/`);
-    const expected = editUrl(slugify(fiche.forme_fautive));
-    assert.ok(hrefs(html).includes(expected), `${fiche.file} carries ${expected}`);
+    const path = editedPath(editLink(html, fiche.file));
+
+    assert.equal(path, `${FICHES_PATH}/${fiche.file}`, `${fiche.file} edits its own file`);
+    assert.ok(existsSync(join(ROOT, path)), `${path} is a file of the repository`);
     assert.match(html, /class="[^"]*\bmodifier\b/, `${fiche.file} names the link`);
   }
 });
 
 test('the edit link is not hardcoded to one fiche', () => {
-  // The build derives it per page; a single slug in the template would make
+  // The build derives it per page; a single path in the template would make
   // every page point at the same file.
-  const expected = new Set(fiches().map((fiche) => editUrl(slugify(fiche.forme_fautive))));
-  for (const fiche of fiches()) {
-    const html = readPage(`/${slugify(fiche.forme_fautive)}/`);
-    const edits = hrefs(html).filter((href) => href.includes('/edit/main/'));
-    assert.equal(edits.length, 1, `${fiche.file} carries exactly one edit link`);
-    assert.ok(expected.has(edits[0] ?? ''), `${fiche.file} edits its own file`);
+  const edited = new Set(
+    fiches().map((fiche) => editedPath(editLink(readPage(`/${slugify(fiche.forme_fautive)}/`), fiche.file))),
+  );
+  assert.equal(edited.size, fiches().length, 'every fiche edits a different file');
+  for (const path of edited) {
+    assert.ok(existsSync(join(ROOT, path)), `${path} is a file of the repository`);
   }
 });
 
@@ -117,7 +141,10 @@ test('the shouting page offers the same edit affordance', () => {
   for (const fiche of fiches()) {
     const slug = slugify(fiche.forme_fautive);
     const shout = readPage(`/${slug}/bordel/`);
-    assert.ok(hrefs(shout).includes(editUrl(slug)), `${slug}/bordel carries ${editUrl(slug)}`);
+    const path = editedPath(editLink(shout, `${slug}/bordel`));
+
+    assert.equal(path, `${FICHES_PATH}/${fiche.file}`, `${slug}/bordel edits the same file`);
+    assert.ok(existsSync(join(ROOT, path)), `${path} is a file of the repository`);
     assert.match(shout, /class="[^"]*\bmodifier\b/, `${slug}/bordel names the link`);
   }
 });

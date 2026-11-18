@@ -10,16 +10,9 @@
  *
  * Pure: no Astro, no DOM, no I/O.
  */
-import { bordelTitle } from './registre.ts';
-
-/** The public repository the fiches are contributed to. */
-export const REPOSITORY = 'https://github.com/cbenz/onditpas.fr';
-
-/** The branch a proposal forks from. */
-const BRANCH = 'main';
-
-/** The tone a fiche is written in; mirrors `src/components/Fiche.astro`. */
-export type Registre = 'deadpan' | 'bordel';
+import { newFileUrl } from './github.ts';
+import { bordelTitle, registreLabel, type Registre } from './registre.ts';
+import { slugify } from './slug.ts';
 
 /** The fiche a pathname asks for. */
 export interface GeneratedFiche {
@@ -83,24 +76,27 @@ export interface GeneratedView {
  */
 export function generatedView(fiche: GeneratedFiche): GeneratedView {
   const shouting = fiche.registre === 'bordel';
-  const shout = shouting ? bordelTitle({ formeFautive: fiche.formeFautive }) : null;
-  const correction = shout ?? 'On ne sait pas encore.';
+  const shoutTitle = shouting ? bordelTitle({ formeFautive: fiche.formeFautive }) : null;
+  const correction = shoutTitle ?? 'On ne sait pas encore.';
 
   return {
-    title: `${shout ?? fiche.formeFautive} · onditpas.fr`,
-    label: shouting ? 'Bordel' : 'On dit',
+    title: `${shoutTitle ?? fiche.formeFautive} · onditpas.fr`,
+    label: registreLabel(fiche.registre),
     correction,
     shouting,
   };
 }
 
 /**
- * The GitHub new-file form for a slug, prefilled.
+ * The GitHub new-file form for the word a visitor typed, pre-filled.
+ *
+ * The file name is derived from the word rather than taken from it, so that the
+ * `aujourd’hui` typed in the URL proposes `aujourdhui.md` and not a name with an
+ * apostrophe and a space the collection would have to agree to.
  *
  * GitHub forks the repository for a visitor without write access, so the
  * proposal needs no account system on our side.
  */
-export function githubNewFileUrl(slug: string): string {
-  const filename = encodeURIComponent(`${slug}.md`);
-  return `${REPOSITORY}/new/${BRANCH}?filename=${filename}&quick_pull=1`;
+export function githubNewFileUrl(formeFautive: string): string {
+  return newFileUrl(`${slugify(formeFautive)}.md`);
 }

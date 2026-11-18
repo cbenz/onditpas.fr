@@ -11,7 +11,8 @@
  * new-file page. The dialog markup rides along on every page; the script is the
  * same module the tests exercise, bundled by the build.
  */
-import { NEW_FILE_BASE } from '../lib/proposal.ts';
+import { NEW_FILE_BASE } from '../lib/github.ts';
+import { hostOf } from '../lib/host.ts';
 
 export interface Props {
   /** Pre-fills the forme fautive, e.g. the word of a fiche that does not exist yet. */
@@ -188,15 +189,6 @@ const { formeFautive = '', prefillFrom } = Astro.props;
         if (justificationField) justificationField.hidden = hasCorrect;
       };
 
-      /** A source as a reader sees it: its host, so the line stays short. */
-      const hostOf = (url: string) => {
-        try {
-          return new URL(url).host;
-        } catch {
-          return url;
-        }
-      };
-
       /** The live preview, in the visual grammar of the fiche page. */
       const updatePreview = () => {
         const fautive = formeFautive?.value.trim() ?? '';
@@ -319,20 +311,7 @@ const { formeFautive = '', prefillFrom } = Astro.props;
     color: var(--ink);
   }
 
-  /* The link is rendered by Fiche.astro, at the foot of the fiche; the
-     contribution feature styles it, next to the control that duplicates it. */
-  :global(.modifier) {
-    display: inline-block;
-    margin-top: 0.9rem;
-    font-size: 12px;
-    color: var(--muted);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  :global(.modifier:hover) {
-    color: var(--ink);
-  }
+  /* The edit link is styled next to the element it acts on: see Fiche.astro. */
 
   .proposer-trigger:hover {
     background: var(--ink);

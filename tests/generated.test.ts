@@ -9,13 +9,24 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 import {
   githubNewFileUrl,
   generatedView,
   parseGeneratedPath,
 } from '../src/lib/generated.ts';
-import { ROOT, htmlText, meta, pageExists, readPage, title } from './helpers.ts';
+import { buildProposal } from '../src/lib/proposal.ts';
+import {
+  ROOT,
+  distPath,
+  htmlText,
+  meta,
+  pageExists,
+  readPage,
+  scriptSource,
+  title,
+} from './helpers.ts';
 
 /** A non-breaking space, as French typography requires before `!`. */
 const NBSP = '\u00a0';
@@ -99,31 +110,49 @@ test('generatedView: the shout keeps accents and apostrophes', () => {
 /* ── seam S2: the GitHub new-file URL ───────────────────────────────── */
 
 const REPO = 'https://github.com/cbenz/onditpas.fr';
-const NEW_FILE = `${REPO}/new/main`;
+const NEW_FILE = `${REPO}/new/main/src/content/fiches`;
 
-test('githubNewFileUrl: the slug is the file name, and the PR is quick', () => {
-  assert.equal(
-    githubNewFileUrl('pouet'),
-    `${NEW_FILE}?filename=pouet.md&quick_pull=1`,
-  );
+test('githubNewFileUrl: the file name is the slug, and the PR is quick', () => {
+  assert.equal(githubNewFileUrl('pouet'), `${NEW_FILE}?filename=pouet.md&quick_pull=1`);
 });
 
-test('githubNewFileUrl: hyphens and apostrophes survive, differently', () => {
-  assert.equal(
-    githubNewFileUrl('force-a-toi'),
-    `${NEW_FILE}?filename=force-a-toi.md&quick_pull=1`,
-  );
-  assert.equal(
-    githubNewFileUrl("aujourd'hui"),
-    `${NEW_FILE}?filename=aujourd'hui.md&quick_pull=1`,
-  );
+test('githubNewFileUrl: the typed word becomes a slug, not a file name', () => {
+  // The word comes from the URL, where anything can be typed. The file name is
+  // derived from it, the same way the site derives the slug of a fiche.
+  const cases: ReadonlyArray<readonly [string, string]> = [
+    // Hyphen: kept, the word has one.
+    ['force-a-toi', 'force-a-toi.md'],
+    // Apostrophe: removed, the word is glued back together.
+    ["aujourd'hui", 'aujourdhui.md'],
+    ['aujourd’hui', 'aujourdhui.md'],
+    // Space: removed, not turned into a hyphen.
+    ['en vrai', 'envrai.md'],
+    // Accent: stripped.
+    ['été', 'ete.md'],
+    ['Déso', 'deso.md'],
+  ];
+  for (const [formeFautive, filename] of cases) {
+    assert.equal(
+      new URL(githubNewFileUrl(formeFautive)).searchParams.get('filename'),
+      filename,
+      `${JSON.stringify(formeFautive)} proposes ${filename}`,
+    );
+  }
 });
 
-test('githubNewFileUrl: a non-ASCII slug is percent-escaped', () => {
-  assert.equal(
-    githubNewFileUrl('été'),
-    `${NEW_FILE}?filename=%C3%A9t%C3%A9.md&quick_pull=1`,
-  );
+test('the generated fiche and the proposal modal agree on the file name', () => {
+  // Two ways into the same contribution: the writing link of a generated fiche
+  // and the modal. A disagreement would create two files for one word.
+  for (const formeFautive of ['pouet', "aujourd'hui", 'en vrai', 'été', 'wi-fi']) {
+    const fromGenerated = new URL(githubNewFileUrl(formeFautive)).searchParams.get('filename');
+    const { filename } = buildProposal({
+      formeFautive,
+      formeCorrecte: 'autre chose',
+      sources: ['https://example.org'],
+      body: 'Un texte.',
+    });
+    assert.equal(fromGenerated, filename, `${formeFautive} names the same file either way`);
+  }
 });
 
 /* ── seam S1: the document the host serves ──────────────────────────── */
@@ -191,28 +220,24 @@ const STUB_IDS = [
   'ecrire-bouton',
 ] as const;
 
-/**
- * Run one built script against a stub document and return what it changed.
- *
- * This is the closest a static test gets to opening an unknown slug in a
- * browser: the script is the one the build shipped, and the pathname is the one
- * the host rewrites to this document.
- */
-function execute(
-  source: string,
-  pathname: string,
-): {
+/** What one run of a shipped script changed. */
+interface Run {
   pageTitle: string;
   elements: Map<string, StubElement>;
   opened: string[];
-} {
-  class HTMLAnchorElement {}
+}
+
+/** The anchor class the shipped script checks its link against. */
+class StubAnchor {}
+
+/** A stub document, with one element per id the page script looks up. */
+function stubDocument(): { document: Record<string, unknown>; elements: Map<string, StubElement> } {
   const elements = new Map<string, StubElement>();
 
   for (const id of STUB_IDS) {
     const classes = new Set<string>();
     const handlers: Array<() => void> = [];
-    const element = Object.assign(id === 'ecrire' ? new HTMLAnchorElement() : {}, {
+    const element = Object.assign(id === 'ecrire' ? new StubAnchor() : {}, {
       id,
       textContent: '',
       classes,
@@ -232,12 +257,20 @@ function execute(
     elements.set(id, element);
   }
 
-  const fakeDocument = {
-    title: '',
-    getElementById: (id: string) => elements.get(id) ?? null,
-    // The proposal dialog's script looks for its own root and finds nothing.
-    querySelector: () => null,
+  return {
+    document: {
+      title: '',
+      getElementById: (id: string) => elements.get(id) ?? null,
+      // The proposal dialog's script looks for its own root and finds nothing.
+      querySelector: () => null,
+    },
+    elements,
   };
+}
+
+/** Run one built script in its own scope, against a stub document. */
+function executeInline(source: string, pathname: string): Run {
+  const { document: fakeDocument, elements } = stubDocument();
   const opened: string[] = [];
   const fakeWindow = {
     open: (url: string) => {
@@ -246,60 +279,101 @@ function execute(
     },
   };
 
-  const run = new Function(
-    'document',
-    'location',
-    'window',
-    'HTMLAnchorElement',
-    source,
+  new Function('document', 'location', 'window', 'HTMLAnchorElement', source)(
+    fakeDocument,
+    { pathname },
+    fakeWindow,
+    StubAnchor,
   );
-  run(fakeDocument, { pathname }, fakeWindow, HTMLAnchorElement);
 
-  return { pageTitle: fakeDocument.title, elements, opened };
+  return { pageTitle: String(fakeDocument.title ?? ''), elements, opened };
 }
 
-/* ── seam S1: the client-side fill ──────────────────────────────────── */
+/**
+ * Run one built script the way the browser does: as a module.
+ *
+ * Astro inlines a page script only when its bundle imports nothing. A shared
+ * module moves the script to `/_astro/`, so the test follows it there and
+ * imports it, with the browser globals it reads stubbed for the run.
+ */
+let importCount = 0;
+
+async function executeModule(src: string, pathname: string): Promise<Run> {
+  const { document: fakeDocument, elements } = stubDocument();
+  const opened: string[] = [];
+  const globals = {
+    document: fakeDocument,
+    location: { pathname },
+    window: {
+      open: (url: string) => {
+        opened.push(url);
+        return null;
+      },
+    },
+    HTMLAnchorElement: StubAnchor,
+  };
+
+  // The globals stay in place: a click handler installed by the script runs
+  // later, as it would in a browser, and reads `window` then. Each run replaces
+  // the stubs of the previous one, and their results are kept per run.
+  Object.assign(globalThis as Record<string, unknown>, globals);
+  importCount += 1;
+  await import(`${pathToFileURL(distPath(src)).href}?run=${importCount}`);
+
+  return { pageTitle: String(fakeDocument.title ?? ''), elements, opened };
+}
 
 /** Every inline `<script>` body the page carries, one entry per tag. */
 function inlineScripts(document: string): string[] {
-  return [...document.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(
+  return [...document.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(
     (match) => match[1] ?? '',
   );
 }
 
-/** Every linked script body, for a build that ships the module as a file. */
+/** Every linked script the page carries, as the site paths it points at. */
 function linkedScripts(document: string): string[] {
-  return [...document.matchAll(/<script\b[^>]*?\bsrc="([^"]+)"/gi)].map((match) =>
-    readPage(match[1] ?? ''),
-  );
+  return [...document.matchAll(/<script\b[^>]*?\bsrc="([^"]+)"/gi)].map((match) => match[1] ?? '');
 }
+
+/** The source of a built script and of every module it imports, transitively. */
+function moduleGraph(src: string, seen = new Set<string>()): string {
+  if (seen.has(src)) return '';
+  seen.add(src);
+  const code = readPage(src);
+  const imports = [...code.matchAll(/\bfrom\s*"(\.[^"]+)"/g)].map((match) =>
+    new URL(match[1] ?? '', new URL(src, 'https://onditpas.fr')).pathname,
+  );
+  return [code, ...imports.map((dependency) => moduleGraph(dependency, seen))].join('\n');
+}
+
+/** What the assertions read: the page's own script, whatever form the build gave it. */
+const client = [
+  ...inlineScripts(html),
+  ...linkedScripts(html).map((src) => scriptSource(src)),
+].join('\n');
 
 /**
- * The generated page's own script.
+ * Run the page's script, as the build shipped it.
  *
- * Astro inlines a component's script and keeps no attribute on the tag, so the
- * page cannot name its script and this test cannot pick it by name. It picks it
- * by what it does: the generated script is the one that sets the document
- * title. Running each script in its own scope is also what the browser does,
- * and the proposal dialog's script — also on the page — stays out of the way.
+ * The generated page has two scripts: the fill and the proposal dialog. The one
+ * that sets the document title is the fill, so each candidate is run in its own
+ * scope and the first one to name the page wins — exactly as in the browser,
+ * where both run and only the fill touches the title.
  */
-const pageScript = inlineScripts(html).find(
-  (source) =>
-    !/\b(?:import|export)\s/.test(source) && execute(source, '/pouet').pageTitle !== '',
-);
+async function run(pathname: string): Promise<Run> {
+  const inline = inlineScripts(html).filter((source) => source.trim() !== '');
+  for (const source of inline) {
+    const result = executeInline(source, pathname);
+    if (result.pageTitle !== '') return result;
+  }
 
-/** Run the generated page's script, as the build shipped it. */
-function run(pathname: string) {
-  return execute(pageScript ?? '', pathname);
+  for (const src of linkedScripts(html)) {
+    const result = await executeModule(src, pathname);
+    if (result.pageTitle !== '') return result;
+  }
+
+  throw new Error('no shipped script fills the generated document');
 }
-
-/** What the assertions read: the generated script, or every script if the build split it out. */
-const client = pageScript ?? [...inlineScripts(html), ...linkedScripts(html)].join('\n');
-
-/** `true` when the build inlined the script instead of shipping a module file. */
-const selfContained =
-  inlineScripts(html).length > 0 &&
-  !inlineScripts(html).some((source) => /\b(?:import|export)\s/.test(source));
 
 test('the page script reads the pathname', () => {
   assert.match(client, /\.pathname/, 'the word comes from the URL the visitor typed');
@@ -317,46 +391,47 @@ test('the page script shouts through the registre template', () => {
   assert.match(client, /is-bordel/, 'the shouting page wears the accent class');
 });
 
-test(
-  'the built script fills the document from an unknown slug',
-  { skip: selfContained ? false : 'the build ships the script as a separate module file' },
-  () => {
-    assert.ok(pageScript, 'the build inlines the script that fills the generated document');
-    const { pageTitle, elements } = run('/pouet');
+test('the built script fills the document from an unknown slug', async () => {
+  const { pageTitle, elements } = await run('/pouet');
 
-    assert.equal(elements.get('forme-fautive')?.textContent, 'pouet', 'the word you typed');
-    assert.equal(elements.get('forme-fautive-def')?.textContent, 'pouet');
-    assert.equal(elements.get('correction-label')?.textContent, 'On dit');
-    assert.equal(elements.get('correction')?.textContent, 'On ne sait pas encore.');
-    assert.equal(pageTitle, 'pouet · onditpas.fr');
-    assert.equal(
-      elements.get('ecrire')?.href,
-      `${NEW_FILE}?filename=pouet.md&quick_pull=1`,
-      'the link is filled with the slug',
-    );
-    assert.ok(!elements.get('generated')?.classes.has('is-bordel'), 'the page does not shout');
-  },
-);
+  assert.equal(elements.get('forme-fautive')?.textContent, 'pouet', 'the word you typed');
+  assert.equal(elements.get('forme-fautive-def')?.textContent, 'pouet');
+  assert.equal(elements.get('correction-label')?.textContent, 'On dit');
+  assert.equal(elements.get('correction')?.textContent, 'On ne sait pas encore.');
+  assert.equal(pageTitle, 'pouet · onditpas.fr');
+  assert.equal(
+    elements.get('ecrire')?.href,
+    `${NEW_FILE}?filename=pouet.md&quick_pull=1`,
+    'the link is filled with the slug',
+  );
+  assert.ok(!elements.get('generated')?.classes.has('is-bordel'), 'the page does not shout');
+});
 
-test(
-  'the built script shouts on an unknown slug /bordel',
-  { skip: selfContained ? false : 'the build ships the script as a separate module file' },
-  () => {
-    assert.ok(pageScript, 'the build inlines the script that fills the generated document');
-    const { pageTitle, elements, opened } = run('/pouet/bordel');
+test('the built script shouts on an unknown slug /bordel', async () => {
+  const { pageTitle, elements, opened } = await run('/pouet/bordel');
 
-    assert.equal(elements.get('forme-fautive')?.textContent, 'pouet');
-    assert.equal(elements.get('correction-label')?.textContent, 'Bordel');
-    assert.equal(elements.get('correction')?.textContent, `ON DIT PAS POUET, BORDEL${NBSP}!`);
-    assert.equal(pageTitle, `ON DIT PAS POUET, BORDEL${NBSP}! · onditpas.fr`);
-    assert.ok(elements.get('generated')?.classes.has('is-bordel'), 'the page shouts');
+  assert.equal(elements.get('forme-fautive')?.textContent, 'pouet');
+  assert.equal(elements.get('correction-label')?.textContent, 'Bordel');
+  assert.equal(elements.get('correction')?.textContent, `ON DIT PAS POUET, BORDEL${NBSP}!`);
+  assert.equal(pageTitle, `ON DIT PAS POUET, BORDEL${NBSP}! · onditpas.fr`);
+  assert.ok(elements.get('generated')?.classes.has('is-bordel'), 'the page shouts');
 
-    const url = `${NEW_FILE}?filename=pouet.md&quick_pull=1`;
-    assert.equal(elements.get('ecrire')?.href, url);
-    elements.get('ecrire-bouton')?.click();
-    assert.deepEqual(opened, [url], 'the second control opens the same target');
-  },
-);
+  const url = `${NEW_FILE}?filename=pouet.md&quick_pull=1`;
+  assert.equal(elements.get('ecrire')?.href, url);
+  elements.get('ecrire-bouton')?.click();
+  assert.deepEqual(opened, [url], 'the second control opens the same target');
+});
+
+test('the built script slugifies the word it proposes a file for', async () => {
+  // The word comes from the URL: `aujourd’hui` must propose `aujourdhui.md`,
+  // the name the content collection and the proposal modal both expect.
+  const { elements } = await run('/aujourd’hui');
+  assert.equal(
+    new URL(String(elements.get('ecrire')?.href)).searchParams.get('filename'),
+    'aujourdhui.md',
+  );
+});
+
 
 /* ── seam S1: the host rewrite ──────────────────────────────────────── */
 

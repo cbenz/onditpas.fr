@@ -12,10 +12,10 @@
  * infinite URLs, and it must not compete with the authored fiches.
  */
 import Base from '../layouts/Base.astro';
+import { NBSP } from '../lib/typography';
 
 const pageTitle = 'Fiche pas encore écrite · onditpas.fr';
-const description =
-  'Cette fiche n’a pas encore été écrite. Elle peut l’être en quelques lignes : le formulaire de GitHub s’ouvre déjà rempli du bon nom de fichier.';
+const description = `Cette fiche n’a pas encore été écrite. Elle peut l’être en quelques lignes${NBSP}: le formulaire de GitHub s’ouvre déjà rempli du bon nom de fichier.`;
 ---
 
 <Base
@@ -42,9 +42,9 @@ const description =
             prétendre le contraire.
           </p>
           <p>
-            Elle tient pourtant en trois lignes : le mot, ce qu’on dit à la place, une
+            Elle tient pourtant en trois lignes{NBSP}: le mot, ce qu’on dit à la place, une
             source. Le formulaire ci-dessous s’ouvre sur GitHub avec le bon nom de
-            fichier ; il ne reste qu’à écrire le texte, et le site l’aura.
+            fichier{NBSP}; il ne reste qu’à écrire le texte, et le site l’aura.
           </p>
           <p class="write">
             <a id="ecrire" class="write-link" href="https://github.com/cbenz/onditpas.fr"
@@ -59,7 +59,7 @@ const description =
     </div>
 
     <footer class="foot">
-      <p class="src">Rien à citer : il n’y a pas encore de fiche.</p>
+      <p class="src">Rien à citer{NBSP}: il n’y a pas encore de fiche.</p>
     </footer>
   </article>
 </Base>
