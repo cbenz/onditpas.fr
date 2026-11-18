@@ -102,13 +102,6 @@ test('the catch-all rewrite does not capture the random route', () => {
 
 /* ── reading the document ───────────────────────────────────────────── */
 
-/** The inline scripts of the document, joined. */
-function scripts(document: string): string {
-  return [...document.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
-    .map((match) => match[1] ?? '')
-    .join('\n');
-}
-
 /** The one inline script that performs the draw. */
 function inlineScript(document: string): string {
   const block = [...document.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
@@ -119,13 +112,14 @@ function inlineScript(document: string): string {
 }
 
 /**
- * The JSON array of strings the page inlines.
+ * The JSON array of strings the draw script inlines.
  *
- * The page has to carry the slugs to draw from; parsing the array out of the
- * script is the least coupled way to see what it actually ships.
+ * The page has to carry the slugs to draw from; parsing the array out of that
+ * one script is the least coupled way to see what it actually ships, without
+ * reading the contribution modal's bundle by mistake.
  */
 function embeddedSlugs(document: string): string[] {
-  const arrays = [...scripts(document).matchAll(/\[(?:\s*"[^"]*"\s*,?)*\s*\]/g)]
+  const arrays = [...inlineScript(document).matchAll(/\[(?:\s*"[^"]*"\s*,?)*\s*\]/g)]
     .map((match) => match[0])
     .map((literal) => {
       try {
@@ -137,7 +131,7 @@ function embeddedSlugs(document: string): string[] {
     })
     .filter((value): value is string[] => Array.isArray(value));
 
-  assert.equal(arrays.length, 1, 'the page inlines exactly one list of slugs');
+  assert.equal(arrays.length, 1, 'the draw script inlines exactly one list of slugs');
   return arrays[0] ?? [];
 }
 
