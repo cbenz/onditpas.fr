@@ -10,6 +10,7 @@ import { getCollection, render } from 'astro:content';
 
 import Fiche from '../../components/Fiche.astro';
 import Base from '../../layouts/Base.astro';
+import { editUrl } from '../../lib/proposal';
 import { bordelTitle } from '../../lib/registre';
 import { slugify } from '../../lib/slug';
 
@@ -53,6 +54,7 @@ const description = fiche.data.justification ?? excerpt(fiche.body ?? '');
     sources={fiche.data.sources}
     registre="bordel"
     correction={shout}
+    editUrl={editUrl(slugify(forme_fautive))}
   >
     <Content />
   </Fiche>

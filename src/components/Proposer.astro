@@ -16,12 +16,18 @@ import { NEW_FILE_BASE } from '../lib/proposal.ts';
 export interface Props {
   /** Pre-fills the forme fautive, e.g. the word of a fiche that does not exist yet. */
   formeFautive?: string;
+  /**
+   * A selector for an element whose text the form takes as the forme fautive
+   * when it opens. Pages that only know the word in the browser (a generated
+   * fiche reads it from the URL) fill their headline and point here.
+   */
+  prefillFrom?: string;
 }
 
-const { formeFautive = '' } = Astro.props;
+const { formeFautive = '', prefillFrom } = Astro.props;
 ---
 
-<div class="proposer" data-proposer-root>
+<div class="proposer" data-proposer-root data-proposer-prefill-from={prefillFrom || undefined}>
   <a
     class="proposer-trigger"
     href={NEW_FILE_BASE}
@@ -47,69 +53,74 @@ const { formeFautive = '' } = Astro.props;
       </p>
 
       <div class="field">
-        <label for="forme-fautive">Forme fautive</label>
-        <p class="hint" id="forme-fautive-hint">
+        <label for="proposer-forme-fautive">Forme fautive</label>
+        <p class="hint" id="proposer-forme-fautive-hint">
           Le mot ou l’expression qu’on entend partout, écrit tel qu’on l’entend.
         </p>
         <input
-          id="forme-fautive"
+          id="proposer-forme-fautive"
           name="formeFautive"
           type="text"
           required
           autocomplete="off"
-          aria-describedby="forme-fautive-hint"
+          aria-describedby="proposer-forme-fautive-hint"
           value={formeFautive || undefined}
         />
       </div>
 
       <div class="field">
-        <label for="forme-correcte">Forme correcte (facultatif)</label>
-        <p class="hint" id="forme-correcte-hint">
+        <label for="proposer-forme-correcte">Forme correcte (facultatif)</label>
+        <p class="hint" id="proposer-forme-correcte-hint">
           Ce qu’il faut dire à la place. Laissez vide s’il n’y a rien à dire.
         </p>
         <input
-          id="forme-correcte"
+          id="proposer-forme-correcte"
           name="formeCorrecte"
           type="text"
           autocomplete="off"
-          aria-describedby="forme-correcte-hint"
+          aria-describedby="proposer-forme-correcte-hint"
         />
       </div>
 
       <div class="field" data-field="source" hidden>
-        <label for="source">Source</label>
-        <p class="hint" id="source-hint">
+        <label for="proposer-source">Source</label>
+        <p class="hint" id="proposer-source-hint">
           Une URL qui prouve ce que vous avancez. Obligatoire dès qu’il y a une forme correcte.
         </p>
         <input
-          id="source"
+          id="proposer-source"
           name="source"
           type="url"
           inputmode="url"
           autocomplete="off"
           placeholder="https://"
-          aria-describedby="source-hint"
+          aria-describedby="proposer-source-hint"
         />
       </div>
 
       <div class="field" data-field="justification" hidden>
-        <label for="justification">Il n’y a rien à dire à la place</label>
-        <p class="hint" id="justification-hint">
+        <label for="proposer-justification">Il n’y a rien à dire à la place</label>
+        <p class="hint" id="proposer-justification-hint">
           Expliquez pourquoi on ne peut pas le remplacer. C’est ce que la fiche affichera.
         </p>
         <textarea
-          id="justification"
+          id="proposer-justification"
           name="justification"
           rows="2"
-          aria-describedby="justification-hint"></textarea>
+          aria-describedby="proposer-justification-hint"></textarea>
       </div>
 
       <div class="field">
-        <label for="texte">Le texte de la fiche</label>
-        <p class="hint" id="texte-hint">
+        <label for="proposer-texte">Le texte de la fiche</label>
+        <p class="hint" id="proposer-texte-hint">
           La définition, à plat. Elle s’affiche à droite de la correction.
         </p>
-        <textarea id="texte" name="texte" rows="5" required aria-describedby="texte-hint"></textarea>
+        <textarea
+          id="proposer-texte"
+          name="texte"
+          rows="5"
+          required
+          aria-describedby="proposer-texte-hint"></textarea>
       </div>
 
       <p class="proposer-error" data-proposer-error role="alert"></p>
@@ -160,11 +171,11 @@ const { formeFautive = '' } = Astro.props;
 
     if (trigger && dialog && form) {
       const field = (id: string) => form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${id}`);
-      const formeFautive = field('forme-fautive');
-      const formeCorrecte = field('forme-correcte');
-      const source = field('source');
-      const justification = field('justification');
-      const texte = field('texte');
+      const formeFautive = field('proposer-forme-fautive');
+      const formeCorrecte = field('proposer-forme-correcte');
+      const source = field('proposer-source');
+      const justification = field('proposer-justification');
+      const texte = field('proposer-texte');
       const error = form.querySelector<HTMLElement>('[data-proposer-error]');
       const previewOf = (name: string) => form.querySelector<HTMLElement>(`[data-preview="${name}"]`);
       const sourceField = form.querySelector<HTMLElement>('[data-field="source"]');
@@ -215,9 +226,25 @@ const { formeFautive = '' } = Astro.props;
         if (error) error.textContent = '';
       };
 
+      /**
+       * Take the forme fautive from the page, when it points at one.
+       *
+       * A generated fiche only knows the word in the browser: it fills its
+       * headline from the path and names that headline here. Read at open time,
+       * so the order the two scripts run in does not matter, and never over what
+       * the visitor has already typed.
+       */
+      const applyPrefill = () => {
+        const selector = root?.dataset.proposerPrefillFrom;
+        if (!selector || !formeFautive || formeFautive.value.trim()) return;
+        const from = document.querySelector(selector)?.textContent?.trim();
+        if (from) formeFautive.value = from;
+      };
+
       trigger.addEventListener('click', (event) => {
         event.preventDefault();
         clearError();
+        applyPrefill();
         toggleBranch();
         updatePreview();
         dialog.showModal();
