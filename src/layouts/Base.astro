@@ -9,10 +9,26 @@ interface Props {
   wordmarkHref?: string | null;
   /** Whether the header links to the mur de mots. */
   murLink?: boolean;
+  /**
+   * Keep the document out of search engines. Generated fiches and utility
+   * routes are one document serving infinite URLs; they must not be indexed.
+   */
+  noindex?: boolean;
+  /**
+   * The canonical URL. `null` omits the tag: a generated fiche is one document
+   * served for every unknown slug, so it has no address of its own to claim.
+   */
+  canonical?: string | null;
 }
 
-const { title, description, wordmarkHref = '/', murLink = true } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://onditpas.fr').href;
+const {
+  title,
+  description,
+  wordmarkHref = '/',
+  murLink = true,
+  noindex = false,
+  canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://onditpas.fr').href,
+} = Astro.props;
 ---
 
 <!doctype html>
@@ -22,7 +38,8 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://onditpas.fr
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     {description && <meta name="description" content={description} />}
-    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    {canonical && <link rel="canonical" href={canonical} />}
     <link
       rel="preload"
       href="/fonts/anton-latin.woff2"
