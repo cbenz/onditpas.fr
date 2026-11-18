@@ -7,11 +7,13 @@
  * markup a screen reader announces, and the URL the page knows how to build.
  */
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { slugify } from '../src/lib/slug.ts';
 import { NEW_FILE_BASE, editUrl } from '../src/lib/proposal.ts';
-import { fiches, hrefs, readPage, title } from './helpers.ts';
+import { fiches, hrefs, readPage, ROOT, title } from './helpers.ts';
 
 /** The mur, plus the page of every authored fiche. */
 const PAGES: ReadonlyArray<readonly [label: string, html: string]> = [
@@ -102,6 +104,19 @@ test('the edit link is not hardcoded to one fiche', () => {
     assert.equal(edits.length, 1, `${fiche.file} carries exactly one edit link`);
     assert.ok(expected.has(edits[0] ?? ''), `${fiche.file} edits its own file`);
   }
+});
+
+test('the repository is fit to receive a proposal', () => {
+  const license = readFileSync(join(ROOT, 'LICENSE'), 'utf8');
+  assert.match(license, /MIT License/, 'the code is MIT');
+  assert.match(license, /all rights reserved/i, 'the fiches are not');
+
+  const contributing = readFileSync(join(ROOT, 'CONTRIBUTING.md'), 'utf8');
+  assert.match(contributing, /publish it and to\s+exploit it commercially/i, 'the grant is stated');
+  assert.match(contributing, /npm test/, 'the build check is documented');
+  assert.match(contributing, /justification/, 'the schema rule is documented');
+
+  assert.ok(existsSync(join(ROOT, '.github', 'pull_request_template.md')), 'a PR template exists');
 });
 
 test('the mur and the fiches are unchanged as documents', () => {
