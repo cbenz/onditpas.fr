@@ -1,0 +1,126 @@
+---
+/**
+ * The fiche of a slug nobody wrote: `/fiche-inconnue`.
+ *
+ * One static document serves every unknown path — the host rewrites them here
+ * (see `vercel.json` and `docs/deploy.md`). The words come from
+ * `location.pathname` client-side, so the page builds from the URL the visitor
+ * typed; without JavaScript it still says, in plain French, that this fiche has
+ * not been written yet.
+ *
+ * It is `noindex, nofollow` and claims no canonical: there is one document for
+ * infinite URLs, and it must not compete with the authored fiches.
+ */
+import Base from '../layouts/Base.astro';
+
+const pageTitle = 'Fiche pas encore écrite · onditpas.fr';
+const description =
+  'Cette fiche n’a pas encore été écrite. Elle peut l’être en quelques lignes : le formulaire de GitHub s’ouvre déjà rempli du bon nom de fichier.';
+---
+
+<Base title={pageTitle} description={description} noindex canonical={null} proposer={false}>
+  <article class="fiche" id="generated">
+    <h1 class="headline display" id="forme-fautive">cette forme</h1>
+
+    <div class="row">
+      <div class="corr">
+        <span class="corr-label" id="correction-label">On dit</span>
+        <b class="display" id="correction">On ne sait pas encore.</b>
+      </div>
+
+      <div class="side">
+        <div class="def">
+          <p>
+            La fiche sur «&nbsp;<span id="forme-fautive-def">cette forme</span>&nbsp;» n’a pas
+            encore été écrite. Personne ne s’est encore penché dessus, et l’on ne va pas
+            prétendre le contraire.
+          </p>
+          <p>
+            Elle tient pourtant en trois lignes : le mot, ce qu’on dit à la place, une
+            source. Le formulaire ci-dessous s’ouvre sur GitHub avec le bon nom de
+            fichier ; il ne reste qu’à écrire le texte, et le site l’aura.
+          </p>
+          <p class="write">
+            <a id="ecrire" class="write-link" href="https://github.com/cbenz/onditpas.fr"
+              >Écrire cette fiche</a
+            >
+            <button id="ecrire-bouton" class="write-button" type="button">
+              Ouvrir le formulaire
+            </button>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="foot">
+      <p class="src">Rien à citer : il n’y a pas encore de fiche.</p>
+    </footer>
+  </article>
+</Base>
+
+<script>
+  import { generatedView, githubNewFileUrl, parseGeneratedPath } from '../lib/generated';
+
+  const fiche = parseGeneratedPath(location.pathname);
+
+  /** Fill an element by id, leaving the static fallback alone when it is absent. */
+  function fill(id: string, text: string): void {
+    const element = document.getElementById(id);
+    if (element) element.textContent = text;
+  }
+
+  if (fiche) {
+    const view = generatedView(fiche);
+    const url = githubNewFileUrl(fiche.formeFautive);
+
+    document.title = view.title;
+    document.getElementById('generated')?.classList.toggle('is-bordel', view.shouting);
+
+    fill('forme-fautive', fiche.formeFautive);
+    fill('forme-fautive-def', fiche.formeFautive);
+    fill('correction-label', view.label);
+    fill('correction', view.correction);
+
+    const link = document.getElementById('ecrire');
+    if (link instanceof HTMLAnchorElement) link.href = url;
+
+    document.getElementById('ecrire-bouton')?.addEventListener('click', () => {
+      window.open(url, '_blank', 'noopener');
+    });
+  }
+</script>
+
+<style>
+  .write {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.75rem 1.25rem;
+    margin: 1.2rem 0 0;
+  }
+
+  .write-link,
+  .write-button {
+    font: inherit;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .write-link {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .write-link:hover,
+  .write-button:hover {
+    opacity: 0.75;
+  }
+</style>

@@ -92,3 +92,32 @@ delegation is the documented path.
 
 Everything else — the build, the output directory, the URL behaviour, the tests
 that hold the configuration in place — is committed.
+
+## The catch-all rewrite
+
+Any path that is not an authored fiche answers with the same static document.
+`vercel.json` carries one rule:
+
+```json
+"rewrites": [
+  { "source": "/((?!_astro/|-/)(?!.*\\.[a-zA-Z0-9]+$).+)", "destination": "/fiche-inconnue" }
+]
+```
+
+- A rewrite is not a redirect: there is no `permanent` flag, the visitor keeps
+  the URL they typed and the answer is a 200. That is the point — a shared
+  `/pouet` link has to preview and open like a page.
+- `/-/` is the reserved prefix for utility routes (`/-/random`), and
+  `/_astro/` holds the built assets. Neither is captured.
+- Anything whose last segment looks like a file (`/sitemap.xml`,
+  `/robots.txt`, `/favicon.ico`, `/fonts/anton-latin.woff2`) is left alone, so
+  the crawler and the browser still get the file they asked for.
+- Vercel checks the filesystem before applying rewrites, so the mur, the
+  authored fiches, the redirect pages and the assets are served from `dist/`
+  without reaching this rule at all; the exclusions above are the ones that
+  would otherwise fall through to it.
+- The rewritten document, `dist/fiche-inconnue/index.html`, fills in the word
+  from `location.pathname` in the browser. It is `noindex, nofollow` and emits
+  no canonical tag: one document serves infinite URLs and must not compete with
+  the fiches in search results. `tests/generated.test.ts` holds both the rule
+  and the document in place.

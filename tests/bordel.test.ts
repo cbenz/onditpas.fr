@@ -111,6 +111,16 @@ for (const fiche of authored) {
     const html = readPage(deadpanPath(fiche));
     assert.ok(!markup(html).includes('is-bordel'), 'the deadpan page is not shouting');
     assert.ok(!/BORDEL/.test(htmlText(html)), 'the deadpan page does not shout');
+    // A fiche with nothing to substitute carries no correction line at all:
+    // it shows its justification instead of a forme correcte.
+    if (fiche.forme_correcte === undefined) {
+      assert.ok(!/<b class="display">/.test(markup(html)), 'no correction line to compare');
+      assert.ok(
+        norm(htmlText(html)).includes(norm(fiche.justification ?? '')),
+        'the fiche says why there is nothing to substitute',
+      );
+      return;
+    }
     const shout = fiche.bordel ? norm(fiche.bordel) : norm(expectedShout(fiche));
     assert.notEqual(correction(html), shout);
   });
