@@ -14,6 +14,8 @@ interface Props {
   proposer?: boolean;
   /** Pre-fills the forme fautive, e.g. with the word of a generated fiche. */
   proposerPrefill?: string;
+  /** A selector for the element that holds the forme fautive, for pages that fill it client-side. */
+  proposerPrefillFrom?: string;
   /**
    * Keep the document out of search engines. Generated fiches and utility
    * routes are one document serving infinite URLs; they must not be indexed.
@@ -35,6 +37,7 @@ const {
   canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://onditpas.fr').href,
   proposer = true,
   proposerPrefill,
+  proposerPrefillFrom,
 } = Astro.props;
 ---
 
@@ -71,6 +74,6 @@ const {
         <slot />
       </main>
     </div>
-    {proposer && <Proposer formeFautive={proposerPrefill} />}
+    {proposer && <Proposer formeFautive={proposerPrefill} prefillFrom={proposerPrefillFrom} />}
   </body>
 </html>

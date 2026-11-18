@@ -58,7 +58,13 @@ test('the dialog is labelled and modal, as an assistive technology needs it', ()
   assert.match(dialog[0], /\baria-modal="true"/i, 'the dialog is modal');
 
   // The labels are tied to the inputs they describe, not floating above them.
-  for (const field of ['forme-fautive', 'forme-correcte', 'source', 'justification', 'texte']) {
+  for (const field of [
+    'proposer-forme-fautive',
+    'proposer-forme-correcte',
+    'proposer-source',
+    'proposer-justification',
+    'proposer-texte',
+  ]) {
     assert.ok(html.includes(`id="${field}"`), `the ${field} input has an id`);
     assert.match(html, new RegExp(`<label\\b[^>]*\\bfor="${field}"`, 'i'), `${field} is labelled`);
   }
@@ -103,6 +109,48 @@ test('the edit link is not hardcoded to one fiche', () => {
     const edits = hrefs(html).filter((href) => href.includes('/edit/main/'));
     assert.equal(edits.length, 1, `${fiche.file} carries exactly one edit link`);
     assert.ok(expected.has(edits[0] ?? ''), `${fiche.file} edits its own file`);
+  }
+});
+
+test('the shouting page offers the same edit affordance', () => {
+  // /{slug}/bordel is the same fiche, so it must let the visitor fix it too.
+  for (const fiche of fiches()) {
+    const slug = slugify(fiche.forme_fautive);
+    const shout = readPage(`/${slug}/bordel/`);
+    assert.ok(hrefs(shout).includes(editUrl(slug)), `${slug}/bordel carries ${editUrl(slug)}`);
+    assert.match(shout, /class="[^"]*\bmodifier\b/, `${slug}/bordel names the link`);
+  }
+});
+
+test('a generated fiche offers the dialog, prefilled from its own headline', () => {
+  const html = readPage('/fiche-inconnue/');
+
+  assert.ok(hrefs(html).includes(NEW_FILE_BASE), 'the control is on the page');
+  assert.match(
+    html,
+    /\bdata-proposer-prefill-from="#forme-fautive"/,
+    'the form takes the forme fautive from the word the visitor typed',
+  );
+  // The headline is where the word lives, filled client-side from the path.
+  assert.match(html, /<h1\b[^>]*\bid="forme-fautive"/, 'the headline carries the word');
+});
+
+test('no page repeats an id', () => {
+  // The dialog rides on every page; its field ids must not collide with the
+  // page's own (the generated fiche has a #forme-fautive headline).
+  const pages: ReadonlyArray<readonly [label: string, html: string]> = [
+    ...PAGES,
+    ...fiches().map(
+      (fiche) =>
+        [`the shout ${fiche.forme_fautive}`, readPage(`/${slugify(fiche.forme_fautive)}/bordel/`)] as const,
+    ),
+    ['the generated fiche', readPage('/fiche-inconnue/')],
+  ];
+
+  for (const [label, html] of pages) {
+    const ids = [...html.matchAll(/\bid="([^"]+)"/gi)].map((match) => match[1] ?? '');
+    const repeated = ids.filter((id, index) => ids.indexOf(id) !== index);
+    assert.deepEqual(repeated, [], `${label} repeats no id`);
   }
 });
 

@@ -168,37 +168,6 @@ test('the generated fiche document carries the fiche layout', () => {
   assert.match(html, /class="[^"]*\bdef\b/, 'the definition block is present');
 });
 
-/* ── seam S1: the client-side fill ──────────────────────────────────── */
-
-/** Every script a page carries: inlined `<script>` bodies and linked files. */
-function scripts(document: string): string {
-  const inline = [...document.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
-    .map((match) => match[1] ?? '')
-    .join('\n');
-  const linked = [...document.matchAll(/<script\b[^>]*?\bsrc="([^"]+)"/gi)]
-    .map((match) => readPage(match[1] ?? ''))
-    .join('\n');
-  return `${inline}\n${linked}`;
-}
-
-const client = scripts(html);
-
-test('the page script reads the pathname', () => {
-  assert.match(client, /\.pathname/, 'the word comes from the URL the visitor typed');
-});
-
-test('the page script builds the GitHub new-file URL for the slug', () => {
-  assert.ok(client.includes('github.com/cbenz/onditpas.fr'), 'the repository is named');
-  assert.match(client, /filename/, 'the file name is prefilled');
-  assert.match(client, /\.md/, 'the file is a Markdown fiche');
-  assert.match(client, /quick_pull=1/, 'GitHub opens the pull request form');
-});
-
-test('the page script shouts through the registre template', () => {
-  assert.match(client, /BORDEL/, 'the shout template is the one src/lib/registre.ts defines');
-  assert.match(client, /is-bordel/, 'the shouting page wears the accent class');
-});
-
 /* ── seam S1: the fill, executed ────────────────────────────────────── */
 
 interface StubElement {
@@ -222,20 +191,17 @@ const STUB_IDS = [
   'ecrire-bouton',
 ] as const;
 
-/** The inline script, when Astro inlined a self-contained bundle (no imports). */
-const inline = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
-  .map((match) => match[1] ?? '')
-  .join('\n');
-const selfContained = inline.length > 0 && !/\b(?:import|export)\s/.test(inline);
-
 /**
- * Run the built inline script against a stub document and return what it changed.
+ * Run one built script against a stub document and return what it changed.
  *
  * This is the closest a static test gets to opening an unknown slug in a
  * browser: the script is the one the build shipped, and the pathname is the one
  * the host rewrites to this document.
  */
-function run(pathname: string): {
+function execute(
+  source: string,
+  pathname: string,
+): {
   pageTitle: string;
   elements: Map<string, StubElement>;
   opened: string[];
@@ -269,6 +235,8 @@ function run(pathname: string): {
   const fakeDocument = {
     title: '',
     getElementById: (id: string) => elements.get(id) ?? null,
+    // The proposal dialog's script looks for its own root and finds nothing.
+    querySelector: () => null,
   };
   const opened: string[] = [];
   const fakeWindow = {
@@ -278,22 +246,82 @@ function run(pathname: string): {
     },
   };
 
-  const execute = new Function(
+  const run = new Function(
     'document',
     'location',
     'window',
     'HTMLAnchorElement',
-    inline,
+    source,
   );
-  execute(fakeDocument, { pathname }, fakeWindow, HTMLAnchorElement);
+  run(fakeDocument, { pathname }, fakeWindow, HTMLAnchorElement);
 
   return { pageTitle: fakeDocument.title, elements, opened };
 }
+
+/* ── seam S1: the client-side fill ──────────────────────────────────── */
+
+/** Every inline `<script>` body the page carries, one entry per tag. */
+function inlineScripts(document: string): string[] {
+  return [...document.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(
+    (match) => match[1] ?? '',
+  );
+}
+
+/** Every linked script body, for a build that ships the module as a file. */
+function linkedScripts(document: string): string[] {
+  return [...document.matchAll(/<script\b[^>]*?\bsrc="([^"]+)"/gi)].map((match) =>
+    readPage(match[1] ?? ''),
+  );
+}
+
+/**
+ * The generated page's own script.
+ *
+ * Astro inlines a component's script and keeps no attribute on the tag, so the
+ * page cannot name its script and this test cannot pick it by name. It picks it
+ * by what it does: the generated script is the one that sets the document
+ * title. Running each script in its own scope is also what the browser does,
+ * and the proposal dialog's script — also on the page — stays out of the way.
+ */
+const pageScript = inlineScripts(html).find(
+  (source) =>
+    !/\b(?:import|export)\s/.test(source) && execute(source, '/pouet').pageTitle !== '',
+);
+
+/** Run the generated page's script, as the build shipped it. */
+function run(pathname: string) {
+  return execute(pageScript ?? '', pathname);
+}
+
+/** What the assertions read: the generated script, or every script if the build split it out. */
+const client = pageScript ?? [...inlineScripts(html), ...linkedScripts(html)].join('\n');
+
+/** `true` when the build inlined the script instead of shipping a module file. */
+const selfContained =
+  inlineScripts(html).length > 0 &&
+  !inlineScripts(html).some((source) => /\b(?:import|export)\s/.test(source));
+
+test('the page script reads the pathname', () => {
+  assert.match(client, /\.pathname/, 'the word comes from the URL the visitor typed');
+});
+
+test('the page script builds the GitHub new-file URL for the slug', () => {
+  assert.ok(client.includes('github.com/cbenz/onditpas.fr'), 'the repository is named');
+  assert.match(client, /filename/, 'the file name is prefilled');
+  assert.match(client, /\.md/, 'the file is a Markdown fiche');
+  assert.match(client, /quick_pull=1/, 'GitHub opens the pull request form');
+});
+
+test('the page script shouts through the registre template', () => {
+  assert.match(client, /BORDEL/, 'the shout template is the one src/lib/registre.ts defines');
+  assert.match(client, /is-bordel/, 'the shouting page wears the accent class');
+});
 
 test(
   'the built script fills the document from an unknown slug',
   { skip: selfContained ? false : 'the build ships the script as a separate module file' },
   () => {
+    assert.ok(pageScript, 'the build inlines the script that fills the generated document');
     const { pageTitle, elements } = run('/pouet');
 
     assert.equal(elements.get('forme-fautive')?.textContent, 'pouet', 'the word you typed');
@@ -314,6 +342,7 @@ test(
   'the built script shouts on an unknown slug /bordel',
   { skip: selfContained ? false : 'the build ships the script as a separate module file' },
   () => {
+    assert.ok(pageScript, 'the build inlines the script that fills the generated document');
     const { pageTitle, elements, opened } = run('/pouet/bordel');
 
     assert.equal(elements.get('forme-fautive')?.textContent, 'pouet');
