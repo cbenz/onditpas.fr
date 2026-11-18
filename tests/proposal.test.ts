@@ -9,7 +9,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildProposal, buildFiche, editUrl, NEW_FILE_BASE } from '../src/lib/proposal.ts';
+import {
+  buildProposal,
+  buildFiche,
+  editUrl,
+  InvalidProposal,
+  NEW_FILE_BASE,
+} from '../src/lib/proposal.ts';
 
 const NEW_FILE = 'https://github.com/cbenz/onditpas.fr/new/main/src/content/fiches';
 
@@ -133,6 +139,24 @@ test('a source that is not a URL is refused, as the schema would', () => {
     () => buildProposal({ ...CORRECT, sources: ['voir le dictionnaire'] }),
     /URL/i,
   );
+});
+
+test('a rejection names the field to focus in the form', () => {
+  const fieldOf = (input: Parameters<typeof buildProposal>[0]) => {
+    try {
+      buildProposal(input);
+      return null;
+    } catch (thrown) {
+      assert.ok(thrown instanceof InvalidProposal, 'a proposal rejection is an InvalidProposal');
+      return thrown.field;
+    }
+  };
+
+  assert.equal(fieldOf({ ...CORRECT, formeFautive: '' }), 'formeFautive');
+  assert.equal(fieldOf({ ...CORRECT, body: ' ' }), 'body');
+  assert.equal(fieldOf({ ...CORRECT, sources: [] }), 'sources');
+  assert.equal(fieldOf({ formeFautive: 'wesh', body: 'Un texte.' }), 'justification');
+  assert.equal(fieldOf(CORRECT), null, 'a valid proposal names no field');
 });
 
 test('the new-file form is this repository’s fiches directory, on main', () => {

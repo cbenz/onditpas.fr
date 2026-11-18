@@ -51,11 +51,17 @@ export interface Proposal {
   url: string;
 }
 
+/** The field of a proposal a rejection points at, to focus it in the form. */
+export type ProposalField = 'formeFautive' | 'body' | 'sources' | 'justification';
+
 /** Raised when a proposal would produce a file the content schema rejects. */
 export class InvalidProposal extends Error {
-  constructor(message: string) {
+  readonly field: ProposalField;
+
+  constructor(field: ProposalField, message: string) {
     super(message);
     this.name = 'InvalidProposal';
+    this.field = field;
   }
 }
 
@@ -83,21 +89,26 @@ export function assertValid(input: ProposalInput): void {
   const sources = (input.sources ?? []).map((source) => source.trim()).filter(Boolean);
   const body = optional(input.body);
 
-  if (!formeFautive) throw new InvalidProposal('La forme fautive est obligatoire.');
-  if (!body) throw new InvalidProposal('Le texte de la fiche est obligatoire.');
+  if (!formeFautive) throw new InvalidProposal('formeFautive', 'La forme fautive est obligatoire.');
+  if (!body) throw new InvalidProposal('body', 'Le texte de la fiche est obligatoire.');
 
   if (formeCorrecte) {
     if (sources.length === 0) {
-      throw new InvalidProposal('Une source est obligatoire quand il y a une forme correcte.');
+      throw new InvalidProposal(
+        'sources',
+        'Une source est obligatoire quand il y a une forme correcte.',
+      );
     }
     for (const source of sources) {
-      if (!URL.canParse(source)) throw new InvalidProposal(`Cette source n’est pas une URL : ${source}`);
+      if (!URL.canParse(source)) {
+        throw new InvalidProposal('sources', `Cette source n’est pas une URL : ${source}`);
+      }
     }
     return;
   }
 
   if (!justification) {
-    throw new InvalidProposal('Dites pourquoi il n’y a rien à dire à la place.');
+    throw new InvalidProposal('justification', 'Dites pourquoi il n’y a rien à dire à la place.');
   }
 }
 

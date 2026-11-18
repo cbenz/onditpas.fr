@@ -52,7 +52,7 @@ const { formeFautive = '' } = Astro.props;
           required
           autocomplete="off"
           aria-describedby="forme-fautive-hint"
-          value={formeFautive}
+          value={formeFautive || undefined}
         />
       </div>
 
@@ -118,7 +118,7 @@ const { formeFautive = '' } = Astro.props;
         l’exploiter, y compris commercialement.
       </p>
 
-      <div class="preview" aria-live="polite">
+      <div class="preview">
         <p class="preview-label">Aperçu</p>
         <article class="fiche-preview">
           <p class="headline display" data-preview="forme-fautive"></p>
@@ -252,7 +252,13 @@ const { formeFautive = '' } = Astro.props;
         } catch (thrown) {
           if (!(thrown instanceof InvalidProposal)) throw thrown;
           if (error) error.textContent = thrown.message;
-          (formeFautive?.value.trim() ? texte : formeFautive)?.focus();
+          const focusTarget: Record<string, HTMLInputElement | HTMLTextAreaElement | null> = {
+            formeFautive: formeFautive ?? null,
+            body: texte ?? null,
+            sources: source ?? null,
+            justification: justification ?? null,
+          };
+          focusTarget[thrown.field]?.focus();
         }
       });
     }
@@ -365,7 +371,8 @@ const { formeFautive = '' } = Astro.props;
     margin: 0;
     font-size: 13px;
     line-height: 1.5;
-    color: var(--accent);
+    font-weight: 600;
+    color: var(--ink);
   }
 
   .proposer-error:empty {
