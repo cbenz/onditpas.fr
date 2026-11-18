@@ -1,4 +1,5 @@
 ---
+import Proposer from '../components/Proposer.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -9,9 +10,20 @@ interface Props {
   wordmarkHref?: string | null;
   /** Whether the header links to the mur de mots. */
   murLink?: boolean;
+  /** Whether the contribution control is shown. On by default, on every page. */
+  proposer?: boolean;
+  /** Pre-fills the proposal form, e.g. with the slug of a generated fiche. */
+  proposerPrefill?: string;
 }
 
-const { title, description, wordmarkHref = '/', murLink = true } = Astro.props;
+const {
+  title,
+  description,
+  wordmarkHref = '/',
+  murLink = true,
+  proposer = true,
+  proposerPrefill,
+} = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://onditpas.fr').href;
 ---
 
@@ -47,5 +59,6 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://onditpas.fr
         <slot />
       </main>
     </div>
+    {proposer && <Proposer formeFautive={proposerPrefill} />}
   </body>
 </html>
