@@ -1,0 +1,51 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  /** Document title, without the site suffix. */
+  title: string;
+  description?: string;
+  /** Where the wordmark points; `null` renders it as plain text (on the mur). */
+  wordmarkHref?: string | null;
+  /** Whether the header links to the mur de mots. */
+  murLink?: boolean;
+}
+
+const { title, description, wordmarkHref = '/', murLink = true } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://onditpas.fr').href;
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonical} />
+    <link
+      rel="preload"
+      href="/fonts/anton-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+  </head>
+  <body>
+    <div class="page">
+      <header class="top">
+        {
+          wordmarkHref ? (
+            <a class="wordmark" href={wordmarkHref}>onditpas.fr</a>
+          ) : (
+            <span class="wordmark">onditpas.fr</span>
+          )
+        }
+        {murLink && <a class="mur-link" href="/">toutes les fiches</a>}
+      </header>
+      <main>
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,85 @@
+---
+/**
+ * The fiche, variant A ("Dictionnaire").
+ *
+ * Pure presentation: it takes the data of one fiche and the registre to render
+ * it in, so that the deadpan page and the shouting page (ticket #6) share the
+ * same component. The definition arrives through the default slot.
+ */
+export type Registre = 'deadpan' | 'bordel';
+
+export interface Props {
+  /** The form people wrongly write, set as the headline. */
+  formeFautive: string;
+  /** What should be said instead; absent when the fiche has no substitute. */
+  formeCorrecte?: string;
+  /** Why there is nothing to substitute; shown under the correction line. */
+  justification?: string;
+  /** URLs backing the correction. */
+  sources?: string[];
+  registre?: Registre;
+  /**
+   * Overrides the correction line, e.g. the generated shouting title
+   * (`ON DIT PUBLIC, PAS PUBLIQUE, BORDEL !`). Defaults to the forme correcte.
+   */
+  correction?: string;
+}
+
+const {
+  formeFautive,
+  formeCorrecte,
+  justification,
+  sources = [],
+  registre = 'deadpan',
+  correction,
+} = Astro.props;
+
+const label = registre === 'bordel' ? 'Bordel' : 'On dit';
+const correctionText = correction ?? formeCorrecte;
+
+/** Short, readable label for a source: its host keeps the line tidy. */
+function sourceLabel(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+---
+
+<article class:list={['fiche', { 'is-bordel': registre === 'bordel' }]}>
+  <h1 class="headline display">{formeFautive}</h1>
+
+  <div class="row">
+    <div class="corr">
+      <span class="corr-label">{label}</span>
+      {
+        correctionText ? (
+          <b class="display">{correctionText}</b>
+        ) : (
+          <span class="corr-none">Rien : il n’y a pas d’autre façon de le dire.</span>
+        )
+      }
+      {justification && <p class="why">{justification}</p>}
+    </div>
+
+    <div class="side">
+      <div class="def"><slot /></div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    {
+      sources.length > 0 && (
+        <p class="src">
+          Source{sources.length > 1 ? 's' : ''} :{' '}
+          {sources.map((url) => (
+            <a href={url} rel="noopener noreferrer" title={url}>
+              {sourceLabel(url)}
+            </a>
+          ))}
+        </p>
+      )
+    }
+  </footer>
+</article>

@@ -1,0 +1,47 @@
+---
+import { getCollection, render } from 'astro:content';
+
+import Fiche from '../components/Fiche.astro';
+import Base from '../layouts/Base.astro';
+import { slugify } from '../lib/slug';
+
+export async function getStaticPaths() {
+  const fiches = await getCollection('fiches');
+  return fiches.map((fiche) => ({
+    params: { slug: slugify(fiche.data.forme_fautive) },
+    props: { fiche },
+  }));
+}
+
+const { fiche } = Astro.props;
+const { Content } = await render(fiche);
+const { forme_fautive, forme_correcte } = fiche.data;
+
+const pageTitle = forme_correcte
+  ? `${forme_fautive} — on dit ${forme_correcte} · onditpas.fr`
+  : `${forme_fautive} · onditpas.fr`;
+
+/** The Markdown body with its markup removed, for the meta description. */
+function excerpt(markdown: string, max = 155): string {
+  const text = markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[#>*_`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+const description = fiche.data.justification ?? excerpt(fiche.body ?? '');
+---
+
+<Base title={pageTitle} description={description}>
+  <Fiche
+    formeFautive={forme_fautive}
+    formeCorrecte={forme_correcte}
+    justification={fiche.data.justification}
+    sources={fiche.data.sources}
+  >
+    <Content />
+  </Fiche>
+</Base>
