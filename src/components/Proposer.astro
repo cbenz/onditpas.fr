@@ -286,6 +286,21 @@ const { formeFautive = '' } = Astro.props;
     color: var(--ink);
   }
 
+  /* The link is rendered by Fiche.astro, at the foot of the fiche; the
+     contribution feature styles it, next to the control that duplicates it. */
+  :global(.modifier) {
+    display: inline-block;
+    margin-top: 0.9rem;
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  :global(.modifier:hover) {
+    color: var(--ink);
+  }
+
   .proposer-trigger:hover {
     background: var(--ink);
     color: var(--paper);
