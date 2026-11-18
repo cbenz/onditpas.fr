@@ -1,0 +1,19 @@
+---
+import { getCollection } from 'astro:content';
+
+import Mur from '../components/Mur.astro';
+import Base from '../layouts/Base.astro';
+
+const fiches = await getCollection('fiches');
+
+const words = fiches.map((fiche) => ({ formeFautive: fiche.data.forme_fautive }));
+---
+
+<Base
+  title="Le mur de mots · onditpas.fr"
+  description="Toutes les fiches d’onditpas.fr : chaque mot qu’on dit mal, une fiche pour le corriger."
+  wordmarkHref={null}
+  murLink={false}
+>
+  <Mur fiches={words} />
+</Base>
