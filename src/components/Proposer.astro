@@ -1,0 +1,516 @@
+---
+/**
+ * The contribution control, on every page.
+ *
+ * A floating « proposer » link opens a modal: the four fields of a fiche, a
+ * live preview of what the file will look like, and a submit that opens
+ * GitHub's new-file form pre-filled. GitHub forks the repository for visitors
+ * without write access, so there is no account system and no server here.
+ *
+ * Without JavaScript the anchor still works: it points at the repository's
+ * new-file page. The dialog markup rides along on every page; the script is the
+ * same module the tests exercise, bundled by the build.
+ */
+import { NEW_FILE_BASE } from '../lib/github.ts';
+import { hostOf } from '../lib/host.ts';
+
+export interface Props {
+  /** Pre-fills the forme fautive, e.g. the word of a fiche that does not exist yet. */
+  formeFautive?: string;
+  /**
+   * A selector for an element whose text the form takes as the forme fautive
+   * when it opens. Pages that only know the word in the browser (a generated
+   * fiche reads it from the URL) fill their headline and point here.
+   */
+  prefillFrom?: string;
+}
+
+const { formeFautive = '', prefillFrom } = Astro.props;
+---
+
+<div class="proposer" data-proposer-root data-proposer-prefill-from={prefillFrom || undefined}>
+  <a
+    class="proposer-trigger"
+    href={NEW_FILE_BASE}
+    data-proposer
+    aria-haspopup="dialog"
+    rel="noopener noreferrer"
+  >
+    proposer
+  </a>
+
+  <dialog
+    class="proposer-dialog"
+    data-proposer-dialog
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="proposer-title"
+  >
+    <form class="proposer-form" data-proposer-form novalidate>
+      <h2 class="display proposer-title" id="proposer-title">Proposer une fiche</h2>
+      <p class="proposer-intro">
+        Décrivez la faute, ce qu’il faudrait dire et pourquoi. À l’envoi, GitHub ouvre une
+        pull request pré-remplie et crée un fork si vous n’avez pas les droits.
+      </p>
+
+      <div class="field">
+        <label for="proposer-forme-fautive">Forme fautive</label>
+        <p class="hint" id="proposer-forme-fautive-hint">
+          Le mot ou l’expression qu’on entend partout, écrit tel qu’on l’entend.
+        </p>
+        <input
+          id="proposer-forme-fautive"
+          name="formeFautive"
+          type="text"
+          required
+          autocomplete="off"
+          aria-describedby="proposer-forme-fautive-hint"
+          value={formeFautive || undefined}
+        />
+      </div>
+
+      <div class="field">
+        <label for="proposer-forme-correcte">Forme correcte (facultatif)</label>
+        <p class="hint" id="proposer-forme-correcte-hint">
+          Ce qu’il faut dire à la place. Laissez vide s’il n’y a rien à dire.
+        </p>
+        <input
+          id="proposer-forme-correcte"
+          name="formeCorrecte"
+          type="text"
+          autocomplete="off"
+          aria-describedby="proposer-forme-correcte-hint"
+        />
+      </div>
+
+      <div class="field" data-field="source" hidden>
+        <label for="proposer-source">Source</label>
+        <p class="hint" id="proposer-source-hint">
+          Une URL qui prouve ce que vous avancez. Obligatoire dès qu’il y a une forme correcte.
+        </p>
+        <input
+          id="proposer-source"
+          name="source"
+          type="url"
+          inputmode="url"
+          autocomplete="off"
+          placeholder="https://"
+          aria-describedby="proposer-source-hint"
+        />
+      </div>
+
+      <div class="field" data-field="justification" hidden>
+        <label for="proposer-justification">Il n’y a rien à dire à la place</label>
+        <p class="hint" id="proposer-justification-hint">
+          Expliquez pourquoi on ne peut pas le remplacer. C’est ce que la fiche affichera.
+        </p>
+        <textarea
+          id="proposer-justification"
+          name="justification"
+          rows="2"
+          aria-describedby="proposer-justification-hint"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="proposer-texte">Le texte de la fiche</label>
+        <p class="hint" id="proposer-texte-hint">
+          La définition, à plat. Elle s’affiche à droite de la correction.
+        </p>
+        <textarea
+          id="proposer-texte"
+          name="texte"
+          rows="5"
+          required
+          aria-describedby="proposer-texte-hint"></textarea>
+      </div>
+
+      <p class="proposer-error" data-proposer-error role="alert"></p>
+
+      <div class="proposer-actions">
+        <button class="proposer-submit" type="submit">Ouvrir GitHub</button>
+        <button class="proposer-cancel" type="button" data-proposer-cancel>Annuler</button>
+      </div>
+
+      <p class="proposer-legal">
+        En proposant une fiche, vous autorisez l’éditeur du site à la publier et à
+        l’exploiter, y compris commercialement.
+      </p>
+
+      <div class="preview">
+        <p class="preview-label">Aperçu</p>
+        <article class="fiche-preview">
+          <p class="headline display" data-preview="forme-fautive"></p>
+          <div class="row">
+            <div class="corr">
+              <span class="corr-label">On dit</span>
+              <b class="display" data-preview="forme-correcte"></b>
+              <span class="corr-none" data-preview="corr-none">
+                Rien&nbsp;: il n’y a pas d’autre façon de le dire.
+              </span>
+              <p class="why" data-preview="justification"></p>
+            </div>
+            <div class="side">
+              <div class="def" data-preview="texte"></div>
+            </div>
+          </div>
+          <p class="src" data-preview="source"></p>
+        </article>
+      </div>
+    </form>
+  </dialog>
+</div>
+
+<script>
+  import { buildProposal, InvalidProposal } from '../lib/proposal';
+
+  const root = document.querySelector<HTMLElement>('[data-proposer-root]');
+
+  if (root) {
+    const trigger = root.querySelector<HTMLAnchorElement>('[data-proposer]');
+    const dialog = root.querySelector<HTMLDialogElement>('[data-proposer-dialog]');
+    const form = root.querySelector<HTMLFormElement>('[data-proposer-form]');
+
+    if (trigger && dialog && form) {
+      const field = (id: string) => form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${id}`);
+      const formeFautive = field('proposer-forme-fautive');
+      const formeCorrecte = field('proposer-forme-correcte');
+      const source = field('proposer-source');
+      const justification = field('proposer-justification');
+      const texte = field('proposer-texte');
+      const error = form.querySelector<HTMLElement>('[data-proposer-error]');
+      const previewOf = (name: string) => form.querySelector<HTMLElement>(`[data-preview="${name}"]`);
+      const sourceField = form.querySelector<HTMLElement>('[data-field="source"]');
+      const justificationField = form.querySelector<HTMLElement>('[data-field="justification"]');
+
+      /** Show the field the current branch needs: a source, or a justification. */
+      const toggleBranch = () => {
+        const hasCorrect = Boolean(formeCorrecte?.value.trim());
+        if (sourceField) sourceField.hidden = !hasCorrect;
+        if (justificationField) justificationField.hidden = hasCorrect;
+      };
+
+      /** The live preview, in the visual grammar of the fiche page. */
+      const updatePreview = () => {
+        const fautive = formeFautive?.value.trim() ?? '';
+        const correcte = formeCorrecte?.value.trim() ?? '';
+        const why = justification?.value.trim() ?? '';
+        const text = texte?.value.trim() ?? '';
+        const url = source?.value.trim() ?? '';
+
+        const set = (name: string, value: string) => {
+          const element = previewOf(name);
+          if (element) element.textContent = value;
+        };
+
+        set('forme-fautive', fautive || 'votre mot');
+        set('forme-correcte', correcte);
+        set('justification', correcte ? '' : why);
+        set('texte', text);
+        set('source', correcte && url ? `Source\u00a0: ${hostOf(url)}` : '');
+
+        const noCorrection = previewOf('corr-none');
+        if (noCorrection) noCorrection.hidden = Boolean(correcte);
+        const correction = previewOf('forme-correcte');
+        if (correction) correction.hidden = !correcte;
+      };
+
+      const clearError = () => {
+        if (error) error.textContent = '';
+      };
+
+      /**
+       * Take the forme fautive from the page, when it points at one.
+       *
+       * A generated fiche only knows the word in the browser: it fills its
+       * headline from the path and names that headline here. Read at open time,
+       * so the order the two scripts run in does not matter, and never over what
+       * the visitor has already typed.
+       */
+      const applyPrefill = () => {
+        const selector = root?.dataset.proposerPrefillFrom;
+        if (!selector || !formeFautive || formeFautive.value.trim()) return;
+        const from = document.querySelector(selector)?.textContent?.trim();
+        if (from) formeFautive.value = from;
+      };
+
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        clearError();
+        applyPrefill();
+        toggleBranch();
+        updatePreview();
+        dialog.showModal();
+        formeFautive?.focus();
+      });
+
+      form.querySelector('[data-proposer-cancel]')?.addEventListener('click', () => dialog.close());
+
+      // Escape closes natively once the dialog is modal; returning focus to the
+      // trigger is explicit, so that it happens in every browser.
+      dialog.addEventListener('close', () => trigger.focus());
+
+      for (const input of [formeFautive, formeCorrecte, source, justification, texte]) {
+        input?.addEventListener('input', () => {
+          clearError();
+          toggleBranch();
+          updatePreview();
+        });
+      }
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        clearError();
+
+        const correcte = formeCorrecte?.value ?? '';
+        try {
+          // The same rules the content schema will apply to the file: nothing
+          // leaves the site if the proposal would not build.
+          const proposal = buildProposal({
+            formeFautive: formeFautive?.value ?? '',
+            formeCorrecte: correcte,
+            justification: justification?.value ?? '',
+            sources: correcte.trim() ? [source?.value ?? ''] : [],
+            body: texte?.value ?? '',
+          });
+          dialog.close();
+          window.open(proposal.url, '_blank', 'noopener,noreferrer');
+        } catch (thrown) {
+          if (!(thrown instanceof InvalidProposal)) throw thrown;
+          if (error) error.textContent = thrown.message;
+          const focusTarget: Record<string, HTMLInputElement | HTMLTextAreaElement | null> = {
+            formeFautive: formeFautive ?? null,
+            body: texte ?? null,
+            sources: source ?? null,
+            justification: justification ?? null,
+          };
+          focusTarget[thrown.field]?.focus();
+        }
+      });
+    }
+  }
+</script>
+
+<style>
+  /* ── the floating control ─────────────────────────────────────────── */
+  .proposer {
+    position: fixed;
+    right: var(--gutter);
+    bottom: var(--gutter);
+    z-index: 10;
+  }
+
+  .proposer-trigger {
+    display: inline-block;
+    padding: 0.55rem 0.95rem 0.5rem;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  /* The edit link is styled next to the element it acts on: see Fiche.astro. */
+
+  .proposer-trigger:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* ── the dialog ───────────────────────────────────────────────────── */
+  .proposer-dialog {
+    width: min(46rem, calc(100vw - 2 * var(--gutter)));
+    max-height: min(90vh, 54rem);
+    padding: 0;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    overflow: auto;
+  }
+
+  .proposer-dialog::backdrop {
+    background: color-mix(in srgb, var(--ink) 55%, transparent);
+  }
+
+  .proposer-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: clamp(1rem, 3vw, 1.75rem);
+  }
+
+  .proposer-title {
+    margin: 0;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    line-height: 0.95;
+  }
+
+  .proposer-intro,
+  .hint,
+  .proposer-legal,
+  .preview-label {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .field[hidden] {
+    display: none;
+  }
+
+  .field label {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .field input,
+  .field textarea {
+    font: inherit;
+    font-size: 15px;
+    padding: 0.45rem 0.55rem;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+    border-radius: 0;
+    min-width: 0;
+  }
+
+  .field textarea {
+    resize: vertical;
+  }
+
+  .field input:focus-visible,
+  .field textarea:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  .proposer-error {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .proposer-error:empty {
+    display: none;
+  }
+
+  .proposer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  button {
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.55rem 0.95rem 0.5rem;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+  }
+
+  .proposer-cancel {
+    background: transparent;
+    color: var(--ink);
+  }
+
+  /* ── the preview, in the visual grammar of the fiche ──────────────── */
+  .preview {
+    border-top: 1px solid var(--ink);
+    padding-top: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  .preview-label {
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-size: 11px;
+  }
+
+  .fiche-preview {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .fiche-preview .headline {
+    margin: 0 0 0 -0.045em;
+    font-size: clamp(1.8rem, 7vw, 3.2rem);
+    line-height: 0.85;
+    overflow-wrap: anywhere;
+  }
+
+  .fiche-preview .row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+    border-top: 1px solid var(--ink);
+    margin-top: 0.6rem;
+    padding-top: 0.7rem;
+    min-width: 0;
+  }
+
+  .fiche-preview .corr {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .fiche-preview .corr b {
+    font-size: clamp(1.3rem, 4vw, 2rem);
+    line-height: 0.95;
+    font-weight: 400;
+    overflow-wrap: anywhere;
+  }
+
+  .fiche-preview .corr-none {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .fiche-preview .why {
+    margin: 0.25rem 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .fiche-preview .def {
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .fiche-preview .src {
+    margin: 0.7rem 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .fiche-preview [data-preview='corr-none'][hidden],
+  .fiche-preview [data-preview='forme-correcte'][hidden] {
+    display: none;
+  }
+</style>

@@ -1,0 +1,48 @@
+---
+/**
+ * The shouting registre of a fiche: `/{slug}/bordel`.
+ *
+ * Same fiche, same Markdown body, same sources; the title is generated from the
+ * fiche (see `src/lib/registre.ts`) and the accent colour, carried by the
+ * `is-bordel` class, paints the page.
+ */
+import { getCollection, render } from 'astro:content';
+
+import Fiche from '../../components/Fiche.astro';
+import Base from '../../layouts/Base.astro';
+import { excerpt } from '../../lib/excerpt';
+import { editUrl } from '../../lib/github';
+import { bordelTitle } from '../../lib/registre';
+import { slugify } from '../../lib/slug';
+
+export async function getStaticPaths() {
+  const fiches = await getCollection('fiches');
+  return fiches.map((fiche) => ({
+    params: { slug: slugify(fiche.data.forme_fautive) },
+    props: { fiche },
+  }));
+}
+
+const { fiche } = Astro.props;
+const { Content } = await render(fiche);
+const { forme_fautive, forme_correcte, bordel } = fiche.data;
+
+const shout = bordelTitle({ formeFautive: forme_fautive, formeCorrecte: forme_correcte, bordel });
+const pageTitle = `${shout} · onditpas.fr`;
+
+const description = fiche.data.justification ?? excerpt(fiche.body ?? '');
+---
+
+<Base title={pageTitle} description={description}>
+  <Fiche
+    formeFautive={forme_fautive}
+    formeCorrecte={forme_correcte}
+    justification={fiche.data.justification}
+    sources={fiche.data.sources}
+    registre="bordel"
+    correction={shout}
+    editUrl={editUrl(fiche.filePath)}
+  >
+    <Content />
+  </Fiche>
+</Base>

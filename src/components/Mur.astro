@@ -1,0 +1,95 @@
+---
+/**
+ * The mur de mots: every authored fiche, one word per line, in the display face.
+ *
+ * Presentation only. The words arrive as authored (`forme_fautive`, accents and
+ * apostrophes included) and are sorted here with a French collation fixed at
+ * build time, so that the wall does not depend on the machine's locale.
+ */
+import { slugify } from '../lib/slug';
+
+export interface Props {
+  fiches: { formeFautive: string }[];
+}
+
+const { fiches } = Astro.props;
+
+const collator = new Intl.Collator('fr');
+const words = [...fiches].sort((a, b) => collator.compare(a.formeFautive, b.formeFautive));
+
+/** Rows per column: enough to stack every word in two balanced columns. */
+const rows = Math.ceil(words.length / 2);
+---
+
+<section class="mur">
+  <ul class="mur-list" style={`--mur-rows:${rows}`}>
+    {
+      words.map((word) => (
+        <li>
+          <a href={`/${slugify(word.formeFautive)}`}>
+            <span class="w display">{word.formeFautive}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<style>
+  .mur {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mur-list {
+    list-style: none;
+    margin: clamp(1.5rem, 5vw, 4rem) 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* Computed in the frontmatter: the column flow needs a row count. */
+    grid-template-rows: repeat(var(--mur-rows), auto);
+    grid-auto-flow: column;
+    column-gap: clamp(1rem, 4vw, 3.5rem);
+  }
+
+  .mur-list li {
+    min-width: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  }
+
+  .mur-list a {
+    display: block;
+    text-decoration: none;
+    padding: 0.04em 0;
+  }
+
+  .mur-list .w {
+    display: block;
+    font-size: clamp(1.5rem, 4.4vw, 3.6rem);
+    line-height: 1.14;
+    /* A long word wraps instead of being cut or pushing the page sideways. */
+    overflow-wrap: anywhere;
+  }
+
+  /* A hover mark without the accent: red belongs to the shouting registre. */
+  .mur-list a:hover .w {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.08em;
+  }
+
+  @media (max-width: 700px) {
+    .mur-list {
+      grid-template-columns: 1fr;
+      grid-template-rows: none;
+      grid-auto-flow: row;
+    }
+
+    .mur-list .w {
+      font-size: clamp(1.8rem, 8vw, 3rem);
+    }
+  }
+</style>
