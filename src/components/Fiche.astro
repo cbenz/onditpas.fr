@@ -23,6 +23,8 @@ export interface Props {
    * (`ON DIT PUBLIC, PAS PUBLIQUE, BORDEL !`). Defaults to the forme correcte.
    */
   correction?: string;
+  /** GitHub's edit form for this fiche's own file, built by the page. */
+  editUrl?: string;
 }
 
 const {
@@ -32,6 +34,7 @@ const {
   sources = [],
   registre = 'deadpan',
   correction,
+  editUrl,
 } = Astro.props;
 
 const label = registre === 'bordel' ? 'Bordel' : 'On dit';
@@ -79,6 +82,13 @@ function sourceLabel(url: string): string {
             </a>
           ))}
         </p>
+      )
+    }
+    {
+      editUrl && (
+        <a class="modifier" href={editUrl} rel="noopener noreferrer">
+          modifier
+        </a>
       )
     }
   </footer>
